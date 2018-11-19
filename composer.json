@@ -1,0 +1,26 @@
+{
+    "name": "tflori/breyta",
+    "description": "Library for database migrations",
+    "license": "MIT",
+    "require": {
+        "php": "^7.1"
+    },
+    "require-dev": {
+        "mockery/mockery": "^1.1",
+        "phpunit/phpunit": "^7.2",
+        "squizlabs/php_codesniffer": "^3.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Breyta\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Breyta\\Test\\": "tests"
+        }
+    },
+    "scripts": {
+        "code-style": "phpcs --standard=PSR2 src && phpcs --standard=PSR2 --ignore=example tests"
+    }
+}
