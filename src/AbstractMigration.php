@@ -4,6 +4,9 @@ namespace Breyta;
 
 use Breyta\Adapter\BasicAdapter;
 
+/**
+ * @method mixed exec(string $statement)
+ */
 abstract class AbstractMigration
 {
     private $adapter;
@@ -23,8 +26,8 @@ abstract class AbstractMigration
      */
     abstract public function down(): void;
 
-    protected function exec($statement)
+    public function __call($method , $args)
     {
-        return $this->adapter->exec($statement);
+        return call_user_func_array([$this->adapter, $method], $args);
     }
 }
