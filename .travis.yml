@@ -20,4 +20,4 @@ before_script:
 script:
   - composer code-style
   - vendor/bin/phpunit -c phpunit.xml --coverage-clover=build/logs/clover.xml --coverage-text
-  - sh -c 'if [ "$TRAVIS_PHP_VERSION" = "7.1" ]; then php bin/php-coveralls -v; fi;'
+  - sh -c 'if [ "$TRAVIS_PHP_VERSION" = "7.1" ]; then php vendor/bin/php-coveralls -v; fi;'
