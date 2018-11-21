@@ -9,7 +9,7 @@
          convertWarningsToExceptions="true"
          processIsolation="false"
          stopOnFailure="false"
-         printerClass="\Hugga\Test\Printer">
+         printerClass="\Breyta\Test\Printer">
     <testsuite name="tests">
         <directory>./tests/</directory>
     </testsuite>
