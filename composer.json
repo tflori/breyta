@@ -3,7 +3,8 @@
     "description": "Library for database migrations",
     "license": "MIT",
     "require": {
-        "php": "^7.1"
+        "php": "^7.1",
+        "ext-pdo": "*"
     },
     "require-dev": {
         "mockery/mockery": "^1.1",
@@ -21,6 +22,9 @@
         }
     },
     "scripts": {
-        "code-style": "phpcs --standard=PSR2 src && phpcs --standard=PSR2 --ignore=example tests"
+        "code-style": [
+            "phpcs --standard=PSR2 src",
+            "phpcs --standard=PSR2 --ignore=Example tests"
+        ]
     }
 }

@@ -41,9 +41,9 @@ namespace Breyta\Migrations;
 
 use Breyta\AbstractMigration;
 
-class CreateUsersTable extends AbstractMigration
+class CreateAnimalsTable extends AbstractMigration
 {
-    public function up()
+    public function up(): void
     {
         $this->exec('CREATE TABLE "users" (
             "id" bigserial,
@@ -52,7 +52,7 @@ class CreateUsersTable extends AbstractMigration
         )');
     }
 
-    public function down()
+    public function down(): void
     {
         $this->exec('DROP TABLE "users"');
     }
@@ -62,6 +62,7 @@ class CreateUsersTable extends AbstractMigration
 Control structure:
 
 ```php
+<?php
 
 namespace App\Cli\Commands;
 
@@ -76,10 +77,18 @@ class MigrateCommand extends AbstractCommand
     public function handle()
     {
         $breyta = new Breyta\Migrations($this->db, '/path/to/migrations');
-        $breyta->migrate(function ($message) {
-            $this->info($message); // how ever you output messages
-        });
-
-        $this->info($breyta->status());
+        
+        // register handler (optional)
+        $breyta->onStart([$this, 'start']);
+        $breyta->onBeginMigration([$this, 'beginMigration']);
+        $breyta->onBeforeExecution([$this, 'beforeExecution']);
+        $breyta->onAfterExecution([$this, 'afterExecution']);
+        $breyta->onFinishMigration([$this, 'finishMigration']);
+        $breyta->onFinish([$this, 'finish']);
+        
+        // alternative: implement Breyta\ProgressInterface and register
+        $breyta->useProgress($this);
+        
+        $breyta->migrate();
     }
 }
