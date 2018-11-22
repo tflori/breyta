@@ -11,11 +11,11 @@ class MigrationTest extends TestCase
     /** @test */
     public function executesTheStatementOnDb()
     {
-        $pdo = m::mock(BasicAdapter::class);
-        $migration = new CreateAnimalsTable($pdo);
+        $adapter = m::mock(BasicAdapter::class);
+        $migration = new CreateAnimalsTable($adapter);
 
-        $pdo->shouldReceive('exec')->andReturn(true)->byDefault();
-        $pdo->shouldReceive('exec')->with(m::pattern('/^\s*create table animals\s*\(/i'))
+        $adapter->shouldReceive('exec')->andReturn(true)->byDefault();
+        $adapter->shouldReceive('exec')->with(m::pattern('/^\s*create table animals\s*\(/i'))
             ->once()->andReturn(true);
 
         $migration->up();

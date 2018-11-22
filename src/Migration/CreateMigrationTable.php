@@ -8,13 +8,17 @@ class CreateMigrationTable extends AbstractMigration
 {
     public function up(): void
     {
-        $this->exec('CREATE TABLE migrations (
+        $this->exec("CREATE TABLE migrations (
             file CHARACTER VARYING (64) NOT NULL,
             executed TIMESTAMP NOT NULL,
-            status CHARACTER VARYING (16) NOT NULL DEFAULT \'done\',
+            status CHARACTER VARYING (16) NOT NULL DEFAULT 'done',
             info TEXT,
+            executionTime DOUBLE PRECISION,
             PRIMARY KEY (file)
-        )');
+        )");
+        $this->exec("CREATE INDEX migrations_executed_index ON migrations (executed)");
+        $this->exec("CREATE INDEX migrations_status_index ON migrations (status)");
+        $this->exec("CREATE INDEX migrations_execution_time ON migrations (executionTime)");
     }
 
     public function down(): void
