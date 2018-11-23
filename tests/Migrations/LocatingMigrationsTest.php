@@ -41,18 +41,73 @@ class LocatingMigrationsTest extends TestCase
         ], $status->migrations, '', false, false);
     }
 
-//    /** @test */
-//    public function findsMigrationsInSubFolders()
-//    {
-//        $migrations = new Migrations($this->pdo, __DIR__ . '/../Example');
-//
-//        $status = $migrations->getStatus();
-//
-//        self::assertContains((object)[
-//            'file' => 'Grouped/2018-11-22T22-59-59_FooBar.php',
-//            'status' => 'new',
-//        ], $status->migrations, '', false, false);
-//    }
+    /** @test */
+    public function findsMigrationsInSubFolders()
+    {
+        $migrations = new Migrations($this->pdo, __DIR__ . '/../Example');
+
+        $status = $migrations->getStatus();
+
+        self::assertContains((object)[
+            'file' => 'Grouped/2018-11-22T22-59-59Z_FooBar.php',
+            'status' => 'new',
+        ], $status->migrations, '', false, false);
+    }
+
+    /** @test */
+    public function filtersFilesWithoutClasses()
+    {
+        $migrations = new Migrations($this->pdo, __DIR__ . '/../Example');
+
+        $status = $migrations->getStatus();
+
+        self::assertNotContains((object)[
+            'file' => 'EmptyFile.php',
+            'status' => 'new',
+        ], $status->migrations, '', false, false);
+    }
+
+    /** @test */
+    public function filtersClassesThatNotExtendAbstractMigration()
+    {
+        $migrations = new Migrations($this->pdo, __DIR__ . '/../Example');
+
+        $status = $migrations->getStatus();
+
+        self::assertNotContains((object)[
+            'file' => 'NoMigration.php',
+            'status' => 'new',
+        ], $status->migrations, '', false, false);
+    }
+
+    /** @test */
+    public function ordersMigrations()
+    {
+        $expectedOrder = [
+            '@breyta/CreateMigrationTable.php', // always first
+            'Grouped/Anomaly.php', // migrations without timestamps first in alphabetical order
+            'CreateAnimalsTable.php', // sub folders do not change the order
+            'Grouped/FamilyTable.php',
+            'Grouped/2018-11-22T22-59-59Z_FooBar.php', // then by timestamp
+            '2018-11-22T23-15-31Z_FooBaz.php',
+            'Grouped/2018-11-22T23-59-50Z_Bar.php', // in alphabetical order when equal
+            'Grouped/2018-11-22T23-59-50Z_Foo.php',
+        ];
+        $migrations = new Migrations($this->pdo, __DIR__ . '/../Example');
+
+        $status = $migrations->getStatus();
+
+        // pluck file names
+        $migrationFiles = array_map(function ($migration) {
+            return $migration->file;
+        }, $status->migrations);
+        // filter other migrations that might get added to this folder
+        $migrationFiles = array_filter($migrationFiles, function ($file) use ($expectedOrder) {
+            return in_array($file, $expectedOrder);
+        });
+
+        self::assertSame($expectedOrder, $migrationFiles);
+    }
 
     /** @test */
     public function throwsWhenTheFolderDoesNotExist()
