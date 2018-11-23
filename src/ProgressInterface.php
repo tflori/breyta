@@ -26,30 +26,30 @@ interface ProgressInterface
      *  - `file` - the file name (and unique identifier)  of the migration
      *  - `status` - the current status of the migration (new, done or failed)
      */
-    public function beforeMigration(\stdClass $migration);
+    public function beforeMigration(Migration $migration);
     
     /**
      * Output information about the $statement (before it gets executed)
      *
-     * Statement contains:
+     * Execution contains:
      *  - `teaser` - a brief text (without line breaks) that describes the query (e. g. CREATE TABLE migrations)
      *  - `action` - **optional** the database action to execute (e. g. create)
      *  - `type` - **optional** the type on which the action gets executed (e. g. table)
      *  - `name` - **optional** the name of the object (e. g. migrations)
      */
-    public function beforeExecution(\stdClass $statement);
+    public function beforeExecution(Execution $execution);
     
     /**
      * Output information about the $statement (after it gets executed)
      *
-     * Statement contains:
+     * Execution contains:
      *  - `teaser` - a brief text (without line breaks) that describes the query (e. g. CREATE TABLE migrations)
      *  - `action` - **optional** the database action to execute (e. g. create)
      *  - `type` - **optional** the type on which the action gets executed (e. g. table)
      *  - `name` - **optional** the name of the object (e. g. migrations)
      *  - `executionTime` - the time it required to execute the satement (in seconds)
      */
-    public function afterExecution(\stdClass $statement);
+    public function afterExecution(Execution $execution);
     
     /**
      * Output information about the $migration (after the migration)
@@ -60,7 +60,7 @@ interface ProgressInterface
      *  - `executionTime` - the time it required to execute the migration (in seconds)
      *  - `statements` - an array of statements that got executed
      */
-    public function afterMigration(\stdClass $migration);
+    public function afterMigration(Migration $migration);
     
     /**
      * Output information about what just happened

@@ -12,11 +12,14 @@ class Migrations
     /** @var string */
     protected $path;
 
-    /** @var array */
+    /** @var array|Migration[] */
     protected $migrations;
 
-    /** @var array */
+    /** @var array|String[] */
     protected $classes;
+
+    /** @var array|Migration[] */
+    protected $missingMigrations = [];
 
     public function __construct(\PDO $db, string $path)
     {
@@ -30,16 +33,43 @@ class Migrations
 
     public function getStatus(): \stdClass
     {
-        return (object)[
-            'migrations' => $this->getMigrations(),
-            'count' => 0,
+        $this->loadMigrations();
+
+        $status = (object)[
+            'migrations' => $this->migrations,
+            'count' => count(array_filter($this->migrations, function ($migration) {
+                return $migration->status !== 'done';
+            })),
         ];
+
+        if (count($this->missingMigrations)) {
+            $status->missing = $this->missingMigrations;
+        }
+
+        return $status;
     }
 
-    protected function getMigrations(): array
+    protected function loadMigrations(): array
     {
         if (!$this->migrations) {
             $this->migrations = $this->findMigrations();
+
+            // get the status of migrations from database
+            try {
+                $statement = $this->db->query('SELECT * FROM migrations');
+                if ($statement) {
+                    $statement->setFetchMode(\PDO::FETCH_CLASS, Migration::class);
+                    while ($migration = $statement->fetch()) {
+                        if (!isset($this->migrations[$migration->file])) {
+                            $this->missingMigrations[] = $migration;
+                            continue;
+                        }
+                        $this->migrations[$migration->file] = $migration;
+                    }
+                }
+            } catch (\PDOException $exception) {
+                // the table does not exist - so nothing to do here
+            }
         }
 
         return $this->migrations;
@@ -48,10 +78,10 @@ class Migrations
     protected function findMigrations(): array
     {
         $this->classes['@breyta/CreateMigrationTable.php'] = CreateMigrationTable::class;
-        $migrations = [(object)[
+        $migrations = [Migration::createInstance([
             'file' => '@breyta/CreateMigrationTable.php',
             'status' => 'new',
-        ]];
+        ])];
 
         /** @var \SplFileInfo $fileInfo */
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->path)) as $fileInfo) {
@@ -62,7 +92,7 @@ class Migrations
                 continue;
             }
 
-            $className = $this->getClassFromFile($fileInfo->getPathname());
+            $className = self::getClassFromFile($fileInfo->getPathname());
             if (!$className) {
                 continue;
             }
@@ -73,10 +103,10 @@ class Migrations
 
             $file = substr($fileInfo->getPathname(), strlen($this->path) + 1);
             $this->classes[$file] = $className;
-            $migrations[] = (object)[
+            $migrations[] = Migration::createInstance([
                 'file' => $file,
                 'status' => 'new'
-            ];
+            ]);
         }
 
         usort($migrations, function ($left, $right) {
@@ -116,10 +146,16 @@ class Migrations
             // sort criteria 4: alphabetically
             return strcmp($leftBaseName, $rightBaseName);
         });
+
+        // key by identifier...
+        $migrations = array_combine(array_map(function ($migration) {
+            return $migration->file;
+        }, $migrations), $migrations);
+
         return $migrations;
     }
 
-    protected function getClassFromFile(string $path): ?string
+    protected static function getClassFromFile(string $path): ?string
     {
         $fp = fopen($path, 'r');
         $buffer = '';

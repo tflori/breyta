@@ -2,21 +2,13 @@
 
 namespace Breyta\Test\Migrations;
 
+use Breyta\Migration;
 use Breyta\Migrations;
 use Breyta\Test\TestCase;
 use Mockery as m;
 
 class LocatingMigrationsTest extends TestCase
 {
-    protected $pdo;
-
-    protected function setUp()
-    {
-        parent::setUp();
-
-        $this->pdo = m::mock(\PDO::class);
-    }
-
     /** @test */
     public function returnsAStatusObject()
     {
@@ -35,10 +27,10 @@ class LocatingMigrationsTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertContains((object)[
+        self::assertContains(Migration::createInstance([
             'file' => 'CreateAnimalsTable.php',
             'status' => 'new',
-        ], $status->migrations, '', false, false);
+        ]), $status->migrations, '', false, false);
     }
 
     /** @test */
@@ -48,10 +40,10 @@ class LocatingMigrationsTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertContains((object)[
+        self::assertContains(Migration::createInstance([
             'file' => 'Grouped/2018-11-22T22-59-59Z_FooBar.php',
             'status' => 'new',
-        ], $status->migrations, '', false, false);
+        ]), $status->migrations, '', false, false);
     }
 
     /** @test */
@@ -106,7 +98,7 @@ class LocatingMigrationsTest extends TestCase
             return in_array($file, $expectedOrder);
         });
 
-        self::assertSame($expectedOrder, $migrationFiles);
+        self::assertSame($expectedOrder, array_values($migrationFiles));
     }
 
     /** @test */
