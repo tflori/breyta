@@ -26,4 +26,3 @@ class CreateMigrationTable extends AbstractMigration
         $this->exec('DROP TABLE migrations');
     }
 }
-

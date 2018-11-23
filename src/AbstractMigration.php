@@ -26,7 +26,7 @@ abstract class AbstractMigration
      */
     abstract public function down(): void;
 
-    public function __call($method , $args)
+    public function __call($method, $args)
     {
         return call_user_func_array([$this->adapter, $method], $args);
     }
