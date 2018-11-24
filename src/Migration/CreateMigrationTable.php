@@ -12,7 +12,7 @@ class CreateMigrationTable extends AbstractMigration
             file CHARACTER VARYING (64) NOT NULL,
             executed TIMESTAMP NOT NULL,
             status CHARACTER VARYING (16) NOT NULL DEFAULT 'done',
-            executions TEXT,
+            statements TEXT,
             executionTime DOUBLE PRECISION,
             PRIMARY KEY (file)
         )");

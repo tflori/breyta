@@ -2,7 +2,7 @@
 
 namespace Breyta\Test;
 
-use Breyta\Adapter\BasicAdapter;
+use Breyta\BasicAdapter;
 use Breyta\Test\Example\CreateAnimalsTable;
 use Mockery as m;
 

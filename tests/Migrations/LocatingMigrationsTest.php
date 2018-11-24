@@ -2,8 +2,8 @@
 
 namespace Breyta\Test\Migrations;
 
-use Breyta\Migration;
 use Breyta\Migrations;
+use Breyta\Model\Migration;
 use Breyta\Test\TestCase;
 use Mockery as m;
 
@@ -107,7 +107,7 @@ class LocatingMigrationsTest extends TestCase
         self::expectException(\InvalidArgumentException::class);
         self::expectExceptionMessage('The path to migrations is not valid');
 
-        $migrations = new Migrations(m::mock(\PDO::class), '/any/non-existing/path');
+        $migrations = new Migrations($this->pdo, '/any/non-existing/path');
     }
 
     /** @test */
@@ -116,7 +116,7 @@ class LocatingMigrationsTest extends TestCase
         self::expectException(\InvalidArgumentException::class);
         self::expectExceptionMessage('The path to migrations is not valid');
 
-        $migrations = new Migrations(m::mock(\PDO::class), __FILE__);
+        $migrations = new Migrations($this->pdo, __FILE__);
     }
 
     /** @test */
@@ -134,7 +134,7 @@ class LocatingMigrationsTest extends TestCase
         self::expectException(\InvalidArgumentException::class);
         self::expectExceptionMessage('The path to migrations is not valid');
 
-        $migrations = new Migrations(m::mock(\PDO::class), '/tmp/symlink');
+        $migrations = new Migrations($this->pdo, '/tmp/symlink');
     }
 
     /** @test */
@@ -149,7 +149,7 @@ class LocatingMigrationsTest extends TestCase
             return;
         }
 
-        $migrations = new Migrations(m::mock(\PDO::class), '/tmp/symlink');
+        $migrations = new Migrations($this->pdo, '/tmp/symlink');
 
         self::assertInstanceOf(Migrations::class, $migrations);
     }

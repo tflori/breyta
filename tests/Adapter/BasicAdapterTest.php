@@ -2,7 +2,8 @@
 
 namespace Breyta\Test\Adapter;
 
-use Breyta\Adapter\BasicAdapter;
+use Breyta\BasicAdapter;
+use Breyta\Model\Statement;
 use Breyta\Test\TestCase;
 use Mockery as m;
 
@@ -19,7 +20,9 @@ class BasicAdapterTest extends TestCase
 
         $adapter->exec('This is a test');
 
-        $spy->shouldHaveBeenCalled()->with('This is a test')->once();
+        $spy->shouldHaveBeenCalled()->with(m::on(function (Statement $statement) {
+            return $statement->raw === 'This is a test';
+        }))->once();
     }
 
     /** @dataProvider provideStatementInfos
@@ -31,9 +34,12 @@ class BasicAdapterTest extends TestCase
         $adapter = new BasicAdapter(function () {
         });
 
-        $info = $adapter->getInfo($statement);
+        $statement = $adapter->getStatement($statement);
 
-        self::assertEquals($expected, $info);
+        foreach ($expected as $key => $value) {
+            self::assertObjectHasAttribute($key, $statement);
+            self::assertSame($value, $statement->$key);
+        }
     }
 
     public function provideStatementInfos()

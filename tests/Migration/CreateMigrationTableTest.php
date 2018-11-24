@@ -2,7 +2,7 @@
 
 namespace Breyta\Test\Migration;
 
-use Breyta\Adapter\BasicAdapter;
+use Breyta\BasicAdapter;
 use Breyta\Migration\CreateMigrationTable;
 use Breyta\Test\TestCase;
 use Mockery as m;

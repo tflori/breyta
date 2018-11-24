@@ -1,6 +1,9 @@
 <?php
 
-namespace Breyta;
+namespace Breyta\Model;
+
+use Breyta\AbstractMigration;
+use Breyta\AdapterInterface;
 
 class Migration
 {
@@ -13,8 +16,8 @@ class Migration
     /** @var string */
     public $status;
 
-    /** @var string|array|Execution[] */
-    public $executions;
+    /** @var string|array|Statement[] */
+    public $statements;
 
     /** @var double */
     public $executionTime;
@@ -25,10 +28,10 @@ class Migration
             $this->executed = new \DateTime($this->executed, new \DateTimeZone('UTC'));
         }
 
-        if (!empty($this->executions) && is_string($this->executions)) {
-            $this->executions = array_map(function ($data) {
-                return Execution::createInstance($data);
-            }, json_decode($this->executions, true));
+        if (!empty($this->statements) && is_string($this->statements)) {
+            $this->statements = array_map(function ($data) {
+                return Statement::createInstance($data);
+            }, json_decode($this->statements, true));
         }
     }
 

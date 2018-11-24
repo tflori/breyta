@@ -2,8 +2,8 @@
 
 namespace Breyta\Test\Migrations;
 
-use Breyta\Migration;
 use Breyta\Migrations;
+use Breyta\Model\Migration;
 use Breyta\Test\TestCase;
 use Mockery as m;
 
@@ -27,7 +27,7 @@ class StatusTest extends TestCase
             'file' => '@breyta/CreateMigrationTable.php',
             'executed' => date('Y-m-d\TH:i:s\Z', strtotime('-1 Hour')),
             'status' => 'done',
-            'executions' => json_encode([
+            'statements' => json_encode([
                 [
                     'teaser' => 'CREATE TABLE migrations',
                     'action' => 'create',
@@ -60,7 +60,7 @@ class StatusTest extends TestCase
             'file' => '@breyta/CreateMigrationTable.php',
             'executed' => date('Y-m-d\TH:i:s\Z', strtotime('-1 Hour')),
             'status' => 'done',
-            'executions' => json_encode([
+            'statements' => json_encode([
                 [
                     'teaser' => 'CREATE TABLE migrations',
                     'action' => 'create',
@@ -107,7 +107,7 @@ class StatusTest extends TestCase
             'file' => 'manually executed',
             'executed' => date('Y-m-d\TH:i:s\Z', strtotime('-1 Hour')),
             'status' => 'done',
-            'executions' => json_encode([]),
+            'statements' => json_encode([]),
             'executionTime' => 0.1,
         ]);
 

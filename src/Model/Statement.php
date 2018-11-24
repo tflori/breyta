@@ -1,9 +1,12 @@
 <?php
 
-namespace Breyta;
+namespace Breyta\Model;
 
-class Execution
+class Statement
 {
+    /** @var string */
+    public $raw;
+
     /** @var string */
     public $teaser;
 
@@ -16,8 +19,14 @@ class Execution
     /** @var string  */
     public $name;
 
+    /** @var mixed */
+    public $result = false;
+
     /** @var double */
     public $executionTime;
+
+    /** @var \PDOException */
+    public $exception;
 
     public static function createInstance(array $data = []): self
     {
@@ -27,5 +36,10 @@ class Execution
         }
 
         return $new;
+    }
+
+    public function __toString()
+    {
+        return $this->raw;
     }
 }

@@ -3,6 +3,7 @@
 namespace Breyta;
 
 use Breyta\Migration\CreateMigrationTable;
+use Breyta\Model;
 
 class Migrations
 {
@@ -12,23 +13,42 @@ class Migrations
     /** @var string */
     protected $path;
 
-    /** @var array|Migration[] */
+    /** @var array|Model\Migration[] */
     protected $migrations;
 
     /** @var array|String[] */
     protected $classes;
 
-    /** @var array|Migration[] */
+    /** @var array|Model\Migration[] */
     protected $missingMigrations = [];
 
-    public function __construct(\PDO $db, string $path)
+    /** @var array|Model\Statement[] */
+    protected $statements = [];
+
+    /** @var AdapterInterface */
+    protected $adapter;
+
+    /** @var callable */
+    protected $resolver;
+
+    public function __construct(\PDO $db, string $path, callable $resolver = null)
     {
         if (!file_exists($path) || !is_dir($path)) {
             throw new \InvalidArgumentException('The path to migrations is not valid');
         }
 
+        // force the error mode to exception
+        $db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
         $this->db = $db;
         $this->path = rtrim($path, '/');
+
+        $this->resolver = $resolver ?? function ($class, ...$args) {
+            if ($class === AdapterInterface::class) {
+                return new BasicAdapter(...$args);
+            }
+            return new $class(...$args);
+        };
     }
 
     public function getStatus(): \stdClass
@@ -49,6 +69,66 @@ class Migrations
         return $status;
     }
 
+    public function migrate(string $file = null): bool
+    {
+        $status = $this->getStatus();
+        $toExecute = array_filter($status->migrations, function (Model\Migration $migration) {
+            return $migration->status !== 'done';
+        });
+
+        if ($file && !isset($toExecute[$file])) {
+            return true; // nothing to migrate?
+        } elseif ($file) {
+            $toExecute = [$toExecute[$file]];
+        }
+
+        /**
+         * @var string $file
+         * @var Model\Migration $migration
+         */
+        foreach ($toExecute as $file => $migration) {
+            $this->statements = [];
+            $start = microtime(true);
+            try {
+                $this->db->beginTransaction();
+                /** @var AbstractMigration $migrationInstance */
+                $migrationInstance = call_user_func($this->resolver, $this->classes[$file], $this->getAdapter());
+                $migrationInstance->up();
+
+                $this->saveMigration($migration, 'done', microtime(true) - $start);
+                $this->db->commit();
+            } catch (\Exception $exception) {
+                $this->db->rollBack();
+                $this->saveMigration($migration, 'failed', microtime(true) - $start);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function saveMigration(Model\Migration $migration, $status, $executionTime)
+    {
+        // delete it first (if there is an old line it is outdated)
+        $this->db->prepare("DELETE FROM migrations WHERE file = ?")->execute([$migration->file]);
+
+        $migration->executed = new \DateTime('now', new \DateTimeZone('UTC'));
+        $migration->statements = $this->statements;
+        $migration->status = $status;
+        $migration->executionTime = $executionTime;
+
+        $this->db->prepare("INSERT INTO migrations
+            (file, executed, status, statements, executionTime) VALUES
+            (?, ?, ?, ?, ?)
+        ")->execute([
+            $migration->file,
+            $migration->executed->format('c'),
+            $migration->status,
+            json_encode($migration->statements),
+            $migration->executionTime
+        ]);
+    }
+
     protected function loadMigrations(): array
     {
         if (!$this->migrations) {
@@ -58,7 +138,7 @@ class Migrations
             try {
                 $statement = $this->db->query('SELECT * FROM migrations');
                 if ($statement) {
-                    $statement->setFetchMode(\PDO::FETCH_CLASS, Migration::class);
+                    $statement->setFetchMode(\PDO::FETCH_CLASS, Model\Migration::class);
                     while ($migration = $statement->fetch()) {
                         if (!isset($this->migrations[$migration->file])) {
                             $this->missingMigrations[] = $migration;
@@ -78,7 +158,7 @@ class Migrations
     protected function findMigrations(): array
     {
         $this->classes['@breyta/CreateMigrationTable.php'] = CreateMigrationTable::class;
-        $migrations = [Migration::createInstance([
+        $migrations = [Model\Migration::createInstance([
             'file' => '@breyta/CreateMigrationTable.php',
             'status' => 'new',
         ])];
@@ -92,7 +172,7 @@ class Migrations
                 continue;
             }
 
-            $className = self::getClassFromFile($fileInfo->getPathname());
+            $className = FileHelper::getClassFromFile($fileInfo->getPathname());
             if (!$className) {
                 continue;
             }
@@ -103,7 +183,7 @@ class Migrations
 
             $file = substr($fileInfo->getPathname(), strlen($this->path) + 1);
             $this->classes[$file] = $className;
-            $migrations[] = Migration::createInstance([
+            $migrations[] = Model\Migration::createInstance([
                 'file' => $file,
                 'status' => 'new'
             ]);
@@ -155,48 +235,33 @@ class Migrations
         return $migrations;
     }
 
-    protected static function getClassFromFile(string $path): ?string
+    protected function executeStatement(Model\Statement $statement)
     {
-        $fp = fopen($path, 'r');
-        $buffer = '';
-        $i = 0;
-        $class = $namespace = null;
+        $start = microtime(true);
+        try {
+            $statement->result = $this->db->exec($statement);
+            $statement->exception = null;
+        } catch (\PDOException $exception) {
+            $statement->exception = $exception;
+            throw $exception;
+        } finally {
+            $statement->executionTime = microtime(true) - $start;
+        }
+    }
 
-        while (!$class) {
-            if (feof($fp)) {
-                return null;
-            }
-
-            $buffer .= fread($fp, 512);
-            $tokens = token_get_all($buffer);
-
-            if (strpos($buffer, '{') === false) {
-                continue;
-            }
-
-            for (; $i < count($tokens); $i++) {
-                if ($tokens[$i][0] === T_NAMESPACE) {
-                    for ($j = $i + 1; $j < count($tokens); $j++) {
-                        if ($tokens[$j][0] === T_STRING) {
-                            $namespace .= '\\' . $tokens[$j][1];
-                        } else {
-                            if ($tokens[$j] === '{' || $tokens[$j] === ';') {
-                                break;
-                            }
-                        }
-                    }
+    protected function getAdapter(): AdapterInterface
+    {
+        if (!$this->adapter) {
+            $this->adapter = call_user_func(
+                $this->resolver,
+                AdapterInterface::class,
+                function (Model\Statement $statement) {
+                    $this->statements[] = $statement;
+                    $this->executeStatement($statement);
                 }
-
-                if ($tokens[$i][0] === T_CLASS) {
-                    for ($j = $i + 1; $j < count($tokens); $j++) {
-                        if ($tokens[$j] === '{') {
-                            $class = $tokens[$i+2][1];
-                        }
-                    }
-                }
-            }
+            );
         }
 
-        return $class ? $namespace . '\\' . $class : null;
+        return $this->adapter;
     }
 }

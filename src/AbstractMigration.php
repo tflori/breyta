@@ -2,8 +2,6 @@
 
 namespace Breyta;
 
-use Breyta\Adapter\BasicAdapter;
-
 /**
  * @method mixed exec(string $statement)
  */
@@ -11,7 +9,7 @@ abstract class AbstractMigration
 {
     private $adapter;
 
-    public function __construct(BasicAdapter $adapter)
+    public function __construct(AdapterInterface $adapter)
     {
         $this->adapter = $adapter;
     }
