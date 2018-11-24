@@ -25,7 +25,7 @@ class StatusTest extends TestCase
     {
         $migration = Migration::createInstance([
             'file' => '@breyta/CreateMigrationTable.php',
-            'executed' => date('Y-m-dTH:i:sZ', strtotime('-1 Hour')),
+            'executed' => date('Y-m-d\TH:i:s\Z', strtotime('-1 Hour')),
             'status' => 'done',
             'executions' => json_encode([
                 [
@@ -58,7 +58,7 @@ class StatusTest extends TestCase
     {
         $migration = Migration::createInstance([
             'file' => '@breyta/CreateMigrationTable.php',
-            'executed' => date('Y-m-dTH:i:sZ', strtotime('-1 Hour')),
+            'executed' => date('Y-m-d\TH:i:s\Z', strtotime('-1 Hour')),
             'status' => 'done',
             'executions' => json_encode([
                 [
@@ -105,7 +105,7 @@ class StatusTest extends TestCase
     {
         $migration = Migration::createInstance([
             'file' => 'manually executed',
-            'executed' => date('Y-m-dTH:i:sZ', strtotime('-1 Hour')),
+            'executed' => date('Y-m-d\TH:i:s\Z', strtotime('-1 Hour')),
             'status' => 'done',
             'executions' => json_encode([]),
             'executionTime' => 0.1,
