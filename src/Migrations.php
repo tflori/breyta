@@ -43,6 +43,7 @@ class Migrations
         $this->db = $db;
         $this->path = rtrim($path, '/');
 
+        /** @codeCoverageIgnore the default resolver is a) trivial and b) not testable */
         $this->resolver = $resolver ?? function ($class, ...$args) {
             if ($class === AdapterInterface::class) {
                 return new BasicAdapter(...$args);
@@ -72,15 +73,9 @@ class Migrations
     public function migrate(string $file = null): bool
     {
         $status = $this->getStatus();
-        $toExecute = array_filter($status->migrations, function (Model\Migration $migration) {
-            return $migration->status !== 'done';
+        $toExecute = array_filter($status->migrations, function (Model\Migration $migration) use ($file) {
+            return $migration->status !== 'done' && (!$file || strpos($migration->file, $file) !== false);
         });
-
-        if ($file && !isset($toExecute[$file])) {
-            return true; // nothing to migrate?
-        } elseif ($file) {
-            $toExecute = [$toExecute[$file]];
-        }
 
         /**
          * @var string $file
@@ -97,9 +92,9 @@ class Migrations
 
                 $this->saveMigration($migration, 'done', microtime(true) - $start);
                 $this->db->commit();
-            } catch (\Exception $exception) {
+            } catch (\PDOException $exception) {
                 $this->db->rollBack();
-                $this->saveMigration($migration, 'failed', microtime(true) - $start);
+//                $this->saveMigration($migration, 'failed', microtime(true) - $start);
                 return false;
             }
         }
@@ -129,7 +124,7 @@ class Migrations
         ]);
     }
 
-    protected function loadMigrations(): array
+    protected function loadMigrations()
     {
         if (!$this->migrations) {
             $this->migrations = $this->findMigrations();
@@ -151,8 +146,6 @@ class Migrations
                 // the table does not exist - so nothing to do here
             }
         }
-
-        return $this->migrations;
     }
 
     protected function findMigrations(): array
@@ -235,19 +228,19 @@ class Migrations
         return $migrations;
     }
 
-    protected function executeStatement(Model\Statement $statement)
-    {
-        $start = microtime(true);
-        try {
-            $statement->result = $this->db->exec($statement);
-            $statement->exception = null;
-        } catch (\PDOException $exception) {
-            $statement->exception = $exception;
-            throw $exception;
-        } finally {
-            $statement->executionTime = microtime(true) - $start;
-        }
-    }
+//    protected function executeStatement(Model\Statement $statement)
+//    {
+//        $start = microtime(true);
+//        try {
+//            $statement->result = $this->db->exec($statement);
+//            $statement->exception = null;
+//        } catch (\PDOException $exception) {
+//            $statement->exception = $exception;
+//            throw $exception;
+//        } finally {
+//            $statement->executionTime = microtime(true) - $start;
+//        }
+//    }
 
     protected function getAdapter(): AdapterInterface
     {
@@ -256,8 +249,8 @@ class Migrations
                 $this->resolver,
                 AdapterInterface::class,
                 function (Model\Statement $statement) {
-                    $this->statements[] = $statement;
-                    $this->executeStatement($statement);
+//                    $this->statements[] = $statement;
+//                    $this->executeStatement($statement);
                 }
             );
         }
