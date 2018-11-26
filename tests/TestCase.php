@@ -37,4 +37,20 @@ abstract class TestCase extends MockeryTestCase
 
         return $statement;
     }
+
+    protected function setProtectedProperty($obj, $propertyName, $value)
+    {
+        $reflection = new \ReflectionClass($obj);
+        $property = $reflection->getProperty($propertyName);
+        $property->setAccessible(true);
+        $property->setValue($obj, $value);
+    }
+
+    protected function getProtectedProperty($obj, $propertyName)
+    {
+        $reflection = new \ReflectionClass($obj);
+        $property = $reflection->getProperty($propertyName);
+        $property->setAccessible(true);
+        return $property->getValue($obj);
+    }
 }

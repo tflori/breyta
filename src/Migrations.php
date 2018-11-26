@@ -94,8 +94,8 @@ class Migrations
                 $this->db->commit();
             } catch (\PDOException $exception) {
                 $this->db->rollBack();
-//                $this->saveMigration($migration, 'failed', microtime(true) - $start);
-                return false;
+                $this->saveMigration($migration, 'failed', microtime(true) - $start);
+                throw $exception;
             }
         }
 
@@ -228,19 +228,19 @@ class Migrations
         return $migrations;
     }
 
-//    protected function executeStatement(Model\Statement $statement)
-//    {
-//        $start = microtime(true);
-//        try {
-//            $statement->result = $this->db->exec($statement);
-//            $statement->exception = null;
-//        } catch (\PDOException $exception) {
-//            $statement->exception = $exception;
-//            throw $exception;
-//        } finally {
-//            $statement->executionTime = microtime(true) - $start;
-//        }
-//    }
+    protected function executeStatement(Model\Statement $statement)
+    {
+        $start = microtime(true);
+        try {
+            $statement->result = $this->db->exec($statement->raw);
+            $statement->exception = null;
+        } catch (\PDOException $exception) {
+            $statement->exception = $exception;
+            throw $exception;
+        } finally {
+            $statement->executionTime = microtime(true) - $start;
+        }
+    }
 
     protected function getAdapter(): AdapterInterface
     {
@@ -249,8 +249,8 @@ class Migrations
                 $this->resolver,
                 AdapterInterface::class,
                 function (Model\Statement $statement) {
-//                    $this->statements[] = $statement;
-//                    $this->executeStatement($statement);
+                     $this->statements[] = $statement;
+                    $this->executeStatement($statement);
                 }
             );
         }

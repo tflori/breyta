@@ -7,6 +7,7 @@ use Breyta\BasicAdapter;
 use Breyta\Migration\CreateMigrationTable;
 use Breyta\Migrations;
 use Breyta\Model\Migration;
+use Breyta\Model\Statement;
 use Breyta\Test\Example\CreateAnimalsTable;
 use Breyta\Test\TestCase;
 use Mockery as m;
@@ -22,6 +23,9 @@ class MigrateTest extends TestCase
     /** @var m\Mock */
     protected $resolver;
 
+    /** @var callable */
+    protected $executor;
+
     protected function setUp()
     {
         parent::setUp();
@@ -32,7 +36,10 @@ class MigrateTest extends TestCase
         $this->migrations = m::mock(Migrations::class, [$this->pdo, __DIR__ . '/../Example', $resolver])
             ->makePartial();
         $resolver->shouldReceive('__invoke')->with(AdapterInterface::class, m::type(\Closure::class))
-            ->andReturn(m::mock(BasicAdapter::class))->byDefault();
+            ->andReturnUsing(function ($class, callable $executor) {
+                $this->executor = m::spy($executor);
+                return new BasicAdapter($this->executor);
+            })->byDefault();
         $this->mockPreparedStatement('/^insert into migrations/i', true);
         $this->mockPreparedStatement('/^delete from migrations/i', true, 0);
     }
@@ -40,10 +47,7 @@ class MigrateTest extends TestCase
     /** @test */
     public function returnsSuccessWhenNoMigrationsNeedToBeExecuted()
     {
-        $this->mockStatus(Migration::createInstance([
-            'file' => '@breyta/CreateMigrationTable.php',
-            'status' => 'done'
-        ]))->once();
+        $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class, 'done');
 
         $result = $this->migrations->migrate();
 
@@ -54,12 +58,8 @@ class MigrateTest extends TestCase
     public function executesNewMigrations()
     {
         $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
-        $this->mockStatus(Migration::createInstance([
-            'file' => '@breyta/CreateMigrationTable.php',
-            'status' => 'new'
-        ]))->once()->ordered();
 
-        $migration->shouldReceive('up')->with()->once()->ordered();
+        $migration->shouldReceive('up')->with()->once();
 
         $result = $this->migrations->migrate();
 
@@ -70,12 +70,8 @@ class MigrateTest extends TestCase
     public function executesFailedMigrations()
     {
         $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
-        $this->mockStatus(Migration::createInstance([
-            'file' => '@breyta/CreateMigrationTable.php',
-            'status' => 'failed'
-        ]))->once()->ordered();
 
-        $migration->shouldReceive('up')->with()->once()->ordered();
+        $migration->shouldReceive('up')->with()->once();
 
         $result = $this->migrations->migrate();
 
@@ -85,20 +81,17 @@ class MigrateTest extends TestCase
     /** @test */
     public function executesOnlyMatchingMigrations()
     {
-        $migrationTableMigration = $this->mockMigration(
-            '@breyta/CreateMigrationTable.php',
-            CreateMigrationTable::class
-        );
-        $animalsTableMigration = $this->mockMigration('CreateAnimalsTable.php', CreateAnimalsTable::class);
-        $this->mockStatus(Migration::createInstance([
+        list($migrationTableMigration, $animalsTableMigration) = $this->mockMigrations([
             'file' => '@breyta/CreateMigrationTable.php',
+            'class' => CreateMigrationTable::class,
             'status' => 'new'
-        ]), Migration::createInstance([
+        ], [
             'file' => 'CreateAnimalsTable.php',
+            'class' => CreateAnimalsTable::class,
             'status' => 'new'
-        ]))->once()->ordered();
+        ]);
 
-        $migrationTableMigration->shouldReceive('up')->with()->once()->ordered();
+        $migrationTableMigration->shouldReceive('up')->with()->once();
         $animalsTableMigration->shouldNotReceive('up');
 
         $result = $this->migrations->migrate('MigrationTable');
@@ -109,18 +102,15 @@ class MigrateTest extends TestCase
     /** @test */
     public function executesMigrationsInSeparateTransactions()
     {
-        $migrationTableMigration = $this->mockMigration(
-            '@breyta/CreateMigrationTable.php',
-            CreateMigrationTable::class
-        );
-        $animalsTableMigration = $this->mockMigration('CreateAnimalsTable.php', CreateAnimalsTable::class);
-        $this->mockStatus(Migration::createInstance([
+        list($migrationTableMigration, $animalsTableMigration) = $this->mockMigrations([
             'file' => '@breyta/CreateMigrationTable.php',
+            'class' => CreateMigrationTable::class,
             'status' => 'new'
-        ]), Migration::createInstance([
+        ], [
             'file' => 'CreateAnimalsTable.php',
+            'class' => CreateAnimalsTable::class,
             'status' => 'new'
-        ]))->once()->ordered();
+        ]);
 
         $this->pdo->shouldReceive('beginTransaction')->once()->ordered();
         $migrationTableMigration->shouldReceive('up')->once()->ordered();
@@ -138,10 +128,6 @@ class MigrateTest extends TestCase
     public function savesTheMigrationStatus()
     {
         $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
-        $this->mockStatus(Migration::createInstance([
-            'file' => '@breyta/CreateMigrationTable.php',
-            'status' => 'new'
-        ]))->once()->ordered();
 
         $migration->shouldReceive('up')->with()->once()->ordered();
         $this->mockPreparedStatement('/^insert into migrations/i')
@@ -163,11 +149,7 @@ class MigrateTest extends TestCase
     /** @test */
     public function removesPreviousStatus()
     {
-        $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
-        $this->mockStatus(Migration::createInstance([
-            'file' => '@breyta/CreateMigrationTable.php',
-            'status' => 'failed'
-        ]))->once()->ordered();
+        $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class, 'failed');
 
         $migration->shouldReceive('up')->with()->once()->ordered();
         $this->mockPreparedStatement('/^delete from migrations/i')
@@ -183,23 +165,121 @@ class MigrateTest extends TestCase
     public function pdoExceptionCausesARollback()
     {
         $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
-        $this->mockStatus(Migration::createInstance([
-            'file' => '@breyta/CreateMigrationTable.php',
-            'status' => 'new'
-        ]))->once()->ordered();
 
         $migration->shouldReceive('up')->with()->once()->andThrows(\PDOException::class)->ordered();
         $this->pdo->shouldReceive('rollback')->once()->ordered();
 
-        $result = $this->migrations->migrate();
-
-        self::assertFalse($result);
+        self::expectException(\PDOException::class);
+        $this->migrations->migrate();
     }
 
-    /**
-     * @param Migration ...$migrations
-     * @return m\CompositeExpectation|m\Expectation
-     */
+    /** @test */
+    public function savesFailedStatus()
+    {
+        $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
+
+        $migration->shouldReceive('up')->with()->once()->andThrows(\PDOException::class)->ordered();
+        $this->mockPreparedStatement('/^insert into migrations/i')
+            ->shouldReceive('execute')->withArgs(function (array $values) {
+                self::assertCount(5, $values);
+                self::assertSame('@breyta/CreateMigrationTable.php', array_shift($values));
+                self::assertSame(date('c'), array_shift($values));
+                self::assertSame('failed', array_shift($values));
+                self::assertSame('[]', array_shift($values));
+                self::assertInternalType('double', array_shift($values));
+                return true;
+            })->once()->andReturn(1)->ordered();
+
+        self::expectException(\PDOException::class);
+        $this->migrations->migrate();
+    }
+
+    /** @test */
+    public function executorRequiresAStatement()
+    {
+        $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
+
+
+        $migration->shouldReceive('up')->with()
+            ->once()->andReturnUsing(function () {
+                call_user_func($this->executor, 'CREATE TABLE migrations (col INT NOT NULL, PRIMARY KEY (col))');
+            });
+
+        self::expectException(\Error::class);
+        self::expectExceptionMessage(' must be an instance of Breyta\Model\Statement, string given');
+
+        $this->migrations->migrate();
+    }
+
+    /** @test */
+    public function executorExecutesTheStatement()
+    {
+        $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
+
+        $migration->shouldReceive('up')->with()
+            ->once()->andReturnUsing(function () {
+                call_user_func($this->executor, Statement::createInstance([
+                    'raw' => 'CREATE TABLE migrations (col INT NOT NULL, PRIMARY KEY (col))',
+                ]));
+            })->ordered();
+        $this->pdo->shouldReceive('exec')->with('CREATE TABLE migrations (col INT NOT NULL, PRIMARY KEY (col))')
+            ->once()->andReturn(1);
+
+        $this->migrations->migrate();
+    }
+
+    /** @test */
+    public function addsExecutionTimeToStatement()
+    {
+        $statement = Statement::createInstance([
+            'raw' => 'CREATE TABLE migrations (col INT NOT NULL, PRIMARY KEY (col))',
+        ]);
+
+        $this->mockExecuteStatement($statement);
+
+        self::assertInternalType('double', $statement->executionTime);
+    }
+
+    /** @test */
+    public function addsThrownExceptionToStatement()
+    {
+        $statement = Statement::createInstance([
+                'raw' => 'CREATE TABLE migrations (col INT NOT NULL, PRIMARY KEY (col))',
+        ]);
+
+        try {
+            $this->mockExecuteStatement($statement, new \PDOException('Failed'));
+            $this->fail('Expected PDOException');
+        } catch (\PDOException $exception) {
+            self::assertSame($exception, $statement->exception);
+            self::assertInternalType('double', $statement->executionTime);
+        }
+    }
+
+    /** @test */
+    public function addsStatementsToMigrationStatus()
+    {
+        $statement = Statement::createInstance([
+            'raw' => 'CREATE TABLE migrations (col INT NOT NULL, PRIMARY KEY (col))',
+            'teaser' => 'CREATE TABLE migrations',
+            'action' => 'create',
+            'type' => 'table',
+            'name' => 'migrations',
+        ]);
+
+        $this->mockPreparedStatement('/^insert into migrations/i')
+            ->shouldReceive('execute')->withArgs(function (array $values) use ($statement) {
+                self::assertCount(5, $values);
+                self::assertSame(
+                    json_encode([$statement]),
+                    $values[3]
+                );
+                return true;
+            })->once()->andReturn(1);
+
+        $this->mockExecuteStatement($statement);
+    }
+
     protected function mockStatus(Migration ...$migrations): m\CompositeExpectation
     {
         $status = (object)[
@@ -214,24 +294,57 @@ class MigrateTest extends TestCase
         return $this->migrations->shouldReceive('getStatus')->with()->andReturn($status);
     }
 
-    /**
-     * @param string $file
-     * @param string $class
-     * @return m\MockInterface
-     */
-    protected function mockMigration(string $file, string $class): m\MockInterface
+    protected function mockMigration(string $file, string $class, string $status = 'new'): m\MockInterface
     {
+        return $this->mockMigrations(['file' => $file, 'class' => $class, 'status' => $status])[0];
+    }
+
+    protected function mockMigrations(...$migrations)
+    {
+        $instances = [];
+        $classes = [];
+        $migrationStatus = [];
+        foreach ($migrations as $migration) {
+            $classes[$migration['file']] = $migration['class'];
+            $this->resolver->shouldReceive('__invoke')->with($migration['class'], m::type(AdapterInterface::class))
+                ->andReturn($instances[] = m::mock(CreateMigrationTable::class));
+            $migrationStatus[] = Migration::createInstance([
+                'file' => $migration['file'],
+                'status' => $migration['status'],
+            ]);
+        }
+
         // add the file -> class mapping
-        $reflection = new \ReflectionClass($this->migrations);
-        $property = $reflection->getProperty('classes');
-        $property->setAccessible(true);
-        $classes = $property->getValue($this->migrations);
-        $classes[$file] = $class;
-        $property->setValue($this->migrations, $classes);
+        $this->setProtectedProperty(
+            $this->migrations,
+            'classes',
+            array_merge(
+                $this->getProtectedProperty($this->migrations, 'classes') ?? [],
+                $classes
+            )
+        );
 
-        $this->resolver->shouldReceive('__invoke')->with($class, m::type(AdapterInterface::class))
-            ->andReturn($migrationInstance = m::mock(CreateMigrationTable::class));
+        $this->mockStatus(...$migrationStatus);
 
-        return $migrationInstance;
+        return $instances;
+    }
+
+    protected function mockExecuteStatement(Statement $statement, $result = 1)
+    {
+        $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
+
+        $migration->shouldReceive('up')->with()
+            ->once()->andReturnUsing(function () use ($statement) {
+                call_user_func($this->executor, $statement);
+            })->ordered();
+        $expectation = $this->pdo->shouldReceive('exec')->with($statement->raw)
+            ->once();
+        if ($result instanceof \Exception) {
+            $expectation->andThrow($result);
+        } else {
+            $expectation->andReturn($result);
+        }
+
+        $this->migrations->migrate();
     }
 }
