@@ -50,7 +50,7 @@ class StatusTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertEquals($migration, $status->migrations['@breyta/CreateMigrationTable.php']);
+        self::assertEquals($migration, array_shift($status->migrations));
     }
 
     /** @test */

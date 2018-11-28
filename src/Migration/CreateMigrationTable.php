@@ -11,6 +11,7 @@ class CreateMigrationTable extends AbstractMigration
         $this->exec("CREATE TABLE migrations (
             file CHARACTER VARYING (64) NOT NULL,
             executed TIMESTAMP NOT NULL,
+            reverted TIMESTAMP,
             status CHARACTER VARYING (16) NOT NULL DEFAULT 'done',
             statements TEXT,
             executionTime DOUBLE PRECISION,
@@ -21,8 +22,9 @@ class CreateMigrationTable extends AbstractMigration
         $this->exec("CREATE INDEX migrations_execution_time ON migrations (executionTime)");
     }
 
+    /** @codeCoverageIgnore */
     public function down(): void
     {
-        $this->exec('DROP TABLE migrations');
+        // we never delete this table again ;-)
     }
 }

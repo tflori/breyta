@@ -13,11 +13,14 @@ class Migration
     /** @var \DateTime */
     public $executed;
 
+    /** @var \DateTime */
+    public $reverted;
+
     /** @var string */
     public $status;
 
     /** @var string|array|Statement[] */
-    public $statements;
+    public $statements = [];
 
     /** @var double */
     public $executionTime;
@@ -26,6 +29,10 @@ class Migration
     {
         if (!empty($this->executed) && is_string($this->executed)) {
             $this->executed = new \DateTime($this->executed, new \DateTimeZone('UTC'));
+        }
+
+        if (!empty($this->reverted) && is_string($this->reverted)) {
+            $this->reverted = new \DateTime($this->reverted, new \DateTimeZone('UTC'));
         }
 
         if (!empty($this->statements) && is_string($this->statements)) {

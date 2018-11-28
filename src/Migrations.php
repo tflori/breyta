@@ -7,6 +7,7 @@ use Breyta\Model;
 
 class Migrations
 {
+    const INTERNAL_PREFIX = '@breyta/';
     /** @var \PDO */
     protected $db;
 
@@ -15,9 +16,6 @@ class Migrations
 
     /** @var array|Model\Migration[] */
     protected $migrations;
-
-    /** @var array|String[] */
-    protected $classes;
 
     /** @var array|Model\Migration[] */
     protected $missingMigrations = [];
@@ -70,26 +68,52 @@ class Migrations
         return $status;
     }
 
-    public function migrate(string $file = null): bool
+    public function migrate(): bool
     {
-        $status = $this->getStatus();
-        $toExecute = array_filter($status->migrations, function (Model\Migration $migration) use ($file) {
-            return $migration->status !== 'done' && (!$file || strpos($migration->file, $file) !== false);
+        /** @var Model\Migration[] $migrations */
+        $migrations = array_filter($this->getStatus()->migrations, function (Model\Migration $migration) {
+            return $migration->status !== 'done';
         });
 
-        /**
-         * @var string $file
-         * @var Model\Migration $migration
-         */
-        foreach ($toExecute as $file => $migration) {
+        return $this->up(...$migrations);
+    }
+
+//    public function migrateTo(string $file)
+//    {
+//        $found = false;
+//        $migrations = [];
+//        foreach ($this->getStatus()->migrations as $migration) {
+//            $migrations[] = $migration;
+//            if (strpos($migration, $file) !== false) {
+//                $found = true;
+//                break;
+//            }
+//        }
+//
+//        if (!$found) {
+//            throw new \LogicException('No migration found matching ' . $file);
+//        }
+//
+//        /** @var Model\Migration[] $migrations */
+//        $migrations = array_filter($migrations, function (Model\Migration $migration) {
+//            return $migration->status !== 'done';
+//        });
+//
+//        return $this->up(...$migrations);
+//    }
+
+    public function up(Model\Migration ...$migrations)
+    {
+        foreach ($migrations as $migration) {
             $this->statements = [];
             $start = microtime(true);
             try {
                 $this->db->beginTransaction();
+                $class = self::internalClass($migration->file) ??
+                         FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
                 /** @var AbstractMigration $migrationInstance */
-                $migrationInstance = call_user_func($this->resolver, $this->classes[$file], $this->getAdapter());
+                $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
                 $migrationInstance->up();
-
                 $this->saveMigration($migration, 'done', microtime(true) - $start);
                 $this->db->commit();
             } catch (\PDOException $exception) {
@@ -102,32 +126,108 @@ class Migrations
         return true;
     }
 
+    public function revert()
+    {
+        /** @var Model\Migration[] $migrations */
+        $migrations = array_filter($this->getStatus()->migrations, function (Model\Migration $migration) {
+            return $migration->status === 'done' && !self::isInternal($migration->file);
+        });
+
+        return $this->down(...array_reverse($migrations));
+    }
+
+//    public function revertTo(string $file)
+//    {
+//        $status = $this->getStatus();
+//        $found = false;
+//        $migrations = [];
+//        foreach (array_reverse($status->migrations) as $migration) {
+//            $migrations[] = $migration;
+//            if (strpos($migration, $file) !== false) {
+//                $found = true;
+//                break;
+//            }
+//        }
+//
+//        if (!$found) {
+//            throw new \LogicException('No migration found matching ' . $file);
+//        }
+//
+//        /** @var Model\Migration[] $toExecute */
+//        $toExecute = array_filter($status->migrations, function (Model\Migration $migration) {
+//            return $migration->status === 'done' && !self::isInternal($migration);
+//        });
+//
+//        foreach ($toExecute as $migration) {
+//            $this->down($migration);
+//        }
+//
+//        return true;
+//    }
+
+    public function down(Model\Migration ...$migrations)
+    {
+        foreach ($migrations as $migration) {
+            $this->statements = $migration->statements;
+            $start = microtime(true) - $migration->executionTime;
+            try {
+                $this->db->beginTransaction();
+                $class = self::internalClass($migration->file) ??
+                         FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
+                /** @var AbstractMigration $migrationInstance */
+                $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
+                $migrationInstance->down();
+                $this->saveMigration($migration, 'reverted', microtime(true) - $start);
+                $this->db->commit();
+            } catch (\PDOException $exception) {
+                $this->db->rollBack();
+                throw $exception;
+            }
+        }
+        return true;
+    }
+
     protected function saveMigration(Model\Migration $migration, $status, $executionTime)
     {
-        // delete it first (if there is an old line it is outdated)
-        $this->db->prepare("DELETE FROM migrations WHERE file = ?")->execute([$migration->file]);
+        $exists = (bool)$migration->executed;
 
-        $migration->executed = new \DateTime('now', new \DateTimeZone('UTC'));
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $status === 'reverted' ? $migration->reverted = $now : $migration->executed = $now;
+
         $migration->statements = $this->statements;
         $migration->status = $status;
         $migration->executionTime = $executionTime;
 
-        $this->db->prepare("INSERT INTO migrations
-            (file, executed, status, statements, executionTime) VALUES
-            (?, ?, ?, ?, ?)
-        ")->execute([
-            $migration->file,
-            $migration->executed->format('c'),
-            $migration->status,
-            json_encode($migration->statements),
-            $migration->executionTime
-        ]);
+        if (!$exists) {
+            $this->db->prepare("INSERT INTO migrations
+                (file, executed, status, statements, executionTime) VALUES
+                (?, ?, ?, ?, ?)
+            ")->execute([
+                $migration->file,
+                $migration->executed->format('c'),
+                $migration->status,
+                json_encode($migration->statements),
+                $migration->executionTime
+            ]);
+        } else {
+            $this->db->prepare("UPDATE migrations SET
+                executed = ?, reverted = ?, status = ?, statements = ?, executionTime = ?
+                WHERE file = ?
+            ")->execute([
+                $migration->executed->format('c'),
+                $migration->reverted ? $migration->reverted->format('c') : null,
+                $migration->status,
+                json_encode($migration->statements),
+                $migration->executionTime,
+                $migration->file
+            ]);
+        }
     }
 
     protected function loadMigrations()
     {
         if (!$this->migrations) {
-            $this->migrations = $this->findMigrations();
+            $migrations = $this->findMigrations();
 
             // get the status of migrations from database
             try {
@@ -135,24 +235,24 @@ class Migrations
                 if ($statement) {
                     $statement->setFetchMode(\PDO::FETCH_CLASS, Model\Migration::class);
                     while ($migration = $statement->fetch()) {
-                        if (!isset($this->migrations[$migration->file])) {
+                        if (!isset($migrations[$migration->file])) {
                             $this->missingMigrations[] = $migration;
                             continue;
                         }
-                        $this->migrations[$migration->file] = $migration;
+                        $migrations[$migration->file] = $migration;
                     }
                 }
             } catch (\PDOException $exception) {
                 // the table does not exist - so nothing to do here
             }
+            $this->migrations = array_values($migrations);
         }
     }
 
     protected function findMigrations(): array
     {
-        $this->classes['@breyta/CreateMigrationTable.php'] = CreateMigrationTable::class;
         $migrations = [Model\Migration::createInstance([
-            'file' => '@breyta/CreateMigrationTable.php',
+            'file' => self::INTERNAL_PREFIX . 'CreateMigrationTable.php',
             'status' => 'new',
         ])];
 
@@ -169,13 +269,13 @@ class Migrations
             if (!$className) {
                 continue;
             }
+
             require_once $fileInfo->getPathname();
             if (!is_subclass_of($className, AbstractMigration::class)) {
                 continue;
             }
 
             $file = substr($fileInfo->getPathname(), strlen($this->path) + 1);
-            $this->classes[$file] = $className;
             $migrations[] = Model\Migration::createInstance([
                 'file' => $file,
                 'status' => 'new'
@@ -256,5 +356,15 @@ class Migrations
         }
 
         return $this->adapter;
+    }
+
+    protected static function internalClass(string $file): ?string
+    {
+        return self::isInternal($file) ? 'Breyta\\Migration\\' . substr($file, 8, -4) : null;
+    }
+
+    protected static function isInternal(string $file): bool
+    {
+        return strncmp($file, self::INTERNAL_PREFIX, strlen(self::INTERNAL_PREFIX)) === 0;
     }
 }

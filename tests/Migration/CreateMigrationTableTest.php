@@ -38,15 +38,4 @@ class CreateMigrationTableTest extends TestCase
             ->with(m::pattern('/create index.* on migrations\s*\(\s*executionTime\s*\)/i'))
             ->once();
     }
-
-    /** @test */
-    public function dropsTheMigrationTable()
-    {
-        $adapter = m::mock(BasicAdapter::class)->shouldIgnoreMissing();
-        $migration = new CreateMigrationTable($adapter);
-
-        $migration->down();
-
-        $adapter->shouldHaveReceived('exec')->with(m::pattern('/drop table migrations/i'));
-    }
 }

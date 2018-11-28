@@ -34,10 +34,8 @@ class FileHelper
                     for ($j = $i + 1; $j < count($tokens); $j++) {
                         if ($tokens[$j][0] === T_STRING) {
                             $namespace .= '\\' . $tokens[$j][1];
-                        } else {
-                            if ($tokens[$j] === '{' || $tokens[$j] === ';') {
-                                break;
-                            }
+                        } elseif ($tokens[$j] === '{' || $tokens[$j] === ';') {
+                            break;
                         }
                     }
                 }
@@ -52,6 +50,6 @@ class FileHelper
             }
         }
 
-        return $class ? $namespace . '\\' . $class : null;
+        return $class ? substr($namespace, 1) . '\\' . $class : null;
     }
 }
