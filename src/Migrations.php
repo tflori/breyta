@@ -70,37 +70,46 @@ class Migrations
 
     public function migrate(): bool
     {
+        $this->loadMigrations();
+
         /** @var Model\Migration[] $migrations */
-        $migrations = array_filter($this->getStatus()->migrations, function (Model\Migration $migration) {
+        $migrations = array_filter($this->migrations, function (Model\Migration $migration) {
             return $migration->status !== 'done';
         });
 
         return $this->up(...$migrations);
     }
 
-//    public function migrateTo(string $file)
-//    {
-//        $found = false;
-//        $migrations = [];
-//        foreach ($this->getStatus()->migrations as $migration) {
-//            $migrations[] = $migration;
-//            if (strpos($migration, $file) !== false) {
-//                $found = true;
-//                break;
-//            }
-//        }
-//
-//        if (!$found) {
-//            throw new \LogicException('No migration found matching ' . $file);
-//        }
-//
-//        /** @var Model\Migration[] $migrations */
-//        $migrations = array_filter($migrations, function (Model\Migration $migration) {
-//            return $migration->status !== 'done';
-//        });
-//
-//        return $this->up(...$migrations);
-//    }
+    public function migrateTo(string $file)
+    {
+        $this->loadMigrations();
+
+        $found = false;
+        $migrations = [];
+        foreach ($this->migrations as $migration) {
+            $migrations[] = $migration;
+            if (strpos($migration->file, $file) !== false) {
+                $found = true;
+                break;
+            }
+        }
+
+        if (!$found && $time = strtotime($file)) {
+            $migrations = array_filter($this->migrations, function (Model\Migration $migration) use ($time) {
+                $migrationTime = FileHelper::getTimeFromFileName($migration->file);
+                return is_null($migrationTime) || $migrationTime <= $time;
+            });
+        } elseif (!$found) {
+            throw new \LogicException('No migration found matching ' . $file);
+        }
+
+        /** @var Model\Migration[] $migrations */
+        $migrations = array_filter($migrations, function (Model\Migration $migration) {
+            return $migration->status !== 'done';
+        });
+
+        return $this->up(...$migrations);
+    }
 
     public function up(Model\Migration ...$migrations)
     {
@@ -128,42 +137,48 @@ class Migrations
 
     public function revert()
     {
+        $this->loadMigrations();
+
         /** @var Model\Migration[] $migrations */
-        $migrations = array_filter($this->getStatus()->migrations, function (Model\Migration $migration) {
+        $migrations = array_filter($this->migrations, function (Model\Migration $migration) {
             return $migration->status === 'done' && !self::isInternal($migration->file);
         });
 
         return $this->down(...array_reverse($migrations));
     }
 
-//    public function revertTo(string $file)
-//    {
-//        $status = $this->getStatus();
-//        $found = false;
-//        $migrations = [];
-//        foreach (array_reverse($status->migrations) as $migration) {
-//            $migrations[] = $migration;
-//            if (strpos($migration, $file) !== false) {
-//                $found = true;
-//                break;
-//            }
-//        }
-//
-//        if (!$found) {
-//            throw new \LogicException('No migration found matching ' . $file);
-//        }
-//
-//        /** @var Model\Migration[] $toExecute */
-//        $toExecute = array_filter($status->migrations, function (Model\Migration $migration) {
-//            return $migration->status === 'done' && !self::isInternal($migration);
-//        });
-//
-//        foreach ($toExecute as $migration) {
-//            $this->down($migration);
-//        }
-//
-//        return true;
-//    }
+    public function revertTo(string $file)
+    {
+        $this->loadMigrations();
+
+        $found = false;
+        $migrations = [];
+        foreach (array_reverse($this->migrations) as $migration) {
+            if (strpos($migration->file, $file) !== false) {
+                $found = true;
+                break;
+            }
+            $migrations[] = $migration;
+        }
+
+        if (!$found && $time = strtotime($file)) {
+            $migrations = array_reverse(
+                array_filter($this->migrations, function (Model\Migration $migration) use ($time) {
+                    $migrationTime = FileHelper::getTimeFromFileName($migration->file);
+                    return !is_null($migrationTime) && $migrationTime > $time;
+                })
+            );
+        } elseif (!$found) {
+            throw new \LogicException('No migration found matching ' . $file);
+        }
+
+        /** @var Model\Migration[] $toExecute */
+        $migrations = array_filter($migrations, function (Model\Migration $migration) {
+            return $migration->status === 'done' && !self::isInternal($migration->file);
+        });
+
+        return $this->down(...$migrations);
+    }
 
     public function down(Model\Migration ...$migrations)
     {
@@ -294,26 +309,15 @@ class Migrations
             $rightBaseName = basename($right->file);
 
             // sort criteria 2: has creation date
-            $leftHasCreationDate = (int)preg_match(
-                '/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z)_/',
-                $leftBaseName,
-                $leftCreationDate
-            );
-            $rightHasCreationDate = (int)preg_match(
-                '/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z)_/',
-                $rightBaseName,
-                $rightCreationDate
-            );
-            if ($leftHasCreationDate !== $rightHasCreationDate) {
-                return $leftHasCreationDate - $rightHasCreationDate;
+            $leftTime = FileHelper::getTimeFromFileName($left->file);
+            $rightTime = FileHelper::getTimeFromFileName($right->file);
+            if (is_null($leftTime) !== is_null($rightTime)) {
+                return is_null($rightTime) - is_null($leftTime);
             }
 
             // sort criteria 3: by creation date
-            if (@$leftCreationDate[1] !== @$rightCreationDate[1]) {
-                list($leftDate, $leftTime) = explode('T', $leftCreationDate[1]);
-                list($rightDate, $rightTime) = explode('T', $rightCreationDate[1]);
-                list($leftTime, $rightTime) = str_replace('-', ':', [$leftTime, $rightTime]);
-                return strtotime($leftDate . 'T' . $leftTime) - strtotime($rightDate . 'T' . $rightTime);
+            if ($leftTime !== $rightTime) {
+                return $leftTime - $rightTime;
             }
 
             // sort criteria 4: alphabetically

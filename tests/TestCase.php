@@ -69,18 +69,6 @@ abstract class TestCase extends MockeryTestCase
         return $statement;
     }
 
-    protected function mockStatus(Migration ...$migrations): m\CompositeExpectation
-    {
-        $status = (object)[
-            'migrations' => $migrations,
-            'count' => count(array_filter($migrations, function (Migration $migration) {
-                return $migration->status !== 'done';
-            }))
-        ];
-
-        return $this->migrations->shouldReceive('getStatus')->with()->andReturn($status);
-    }
-
     protected function mockMigration(string $file, string $class, string $status = 'new'): \stdClass
     {
         return $this->mockMigrations(['file' => $file, 'class' => $class, 'status' => $status])[0];
