@@ -12,7 +12,9 @@ interface ProgressInterface
      *
      * Info contains:
      *  - `migrations` - an array of Breyta\Model\Migration
+     *  - `task` - the task that is going to be executed (migrate or revert)
      *  - `count` - an integer how many migrations are going to be executed
+     *  - `toExecute` - an array of migrations that are going to be executed
      *
      * @param \stdClass $info
      */
@@ -47,6 +49,8 @@ interface ProgressInterface
      *
      * Info contains:
      *  - `migrations` - an array of Breyta\Model\Migration
+     *  - `task` - the task that is going to be executed (migrate or revert)
+     *  - `count` - an integer how many migrations are going to be executed
      *  - `executed` - an array of migrations that just got executed
      *
      * @param \stdClass $info

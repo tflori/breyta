@@ -5,9 +5,22 @@ namespace Breyta;
 use Breyta\Migration\CreateMigrationTable;
 use Breyta\Model;
 
+/**
+ * Class Migrations
+ *
+ * The migration engine that puts all parts together.
+ *
+ * @package Breyta
+ * @author Thomas Flori <thflori@gmail.com>
+ */
 class Migrations
 {
     const INTERNAL_PREFIX = '@breyta/';
+
+    /** The name of the migration table
+     * @var string */
+    public static $table = 'migrations';
+
     /** @var \PDO */
     protected $db;
 
@@ -29,7 +42,10 @@ class Migrations
     /** @var callable */
     protected $resolver;
 
-    public function __construct(\PDO $db, string $path, callable $resolver = null)
+    /** @var ProgressInterface */
+    protected $progress;
+
+    public function __construct(\PDO $db, string $path, callable $resolver = null, ProgressInterface $progress = null)
     {
         if (!file_exists($path) || !is_dir($path)) {
             throw new \InvalidArgumentException('The path to migrations is not valid');
@@ -48,8 +64,18 @@ class Migrations
             }
             return new $class(...$args);
         };
+
+        $this->progress = $progress ?? new CallbackProgress();
     }
 
+    /**
+     * Returns the status of the migrations
+     *
+     * It contains an array of all migrations, the count of migrations that are not migrated yet and an array of
+     * migrations that got removed (if files where removed).
+     *
+     * @return \stdClass
+     */
     public function getStatus(): \stdClass
     {
         $this->loadMigrations();
@@ -68,6 +94,11 @@ class Migrations
         return $status;
     }
 
+    /**
+     * Migrate all migrations that are not migrated yet
+     *
+     * @return bool
+     */
     public function migrate(): bool
     {
         $this->loadMigrations();
@@ -80,6 +111,15 @@ class Migrations
         return $this->up(...$migrations);
     }
 
+    /**
+     * Migrate all migrations to a specific migration or date time
+     *
+     * $file can either be a relative file name (or a portion matched with `strpos()`) or a date time string to execute
+     * all migrations to that time.
+     *
+     * @param string $file
+     * @return bool
+     */
     public function migrateTo(string $file)
     {
         $this->loadMigrations();
@@ -111,9 +151,24 @@ class Migrations
         return $this->up(...$migrations);
     }
 
+    /**
+     * Migrate specific migrations
+     *
+     * @param Model\Migration ...$migrations
+     * @return bool
+     */
     public function up(Model\Migration ...$migrations)
     {
+        $started = microtime(true);
+        $this->progress->start((object)[
+            'migrations' => $this->migrations,
+            'task' => 'migrate',
+            'count' => count($migrations),
+            'toExecute' => $migrations,
+        ]);
+
         foreach ($migrations as $migration) {
+            $this->progress->beforeMigration($migration);
             $this->statements = [];
             $start = microtime(true);
             try {
@@ -130,11 +185,24 @@ class Migrations
                 $this->saveMigration($migration, 'failed', microtime(true) - $start);
                 throw $exception;
             }
+            $this->progress->afterMigration($migration);
         }
 
+        $this->progress->finish((object)[
+            'migrations' => $this->migrations,
+            'task' => 'migrate',
+            'count' => count($migrations),
+            'executed' => $migrations,
+            'executionTime' => microtime(true) - $started
+        ]);
         return true;
     }
 
+    /**
+     * Revert all migrations that have been migrated
+     *
+     * @return bool
+     */
     public function revert()
     {
         $this->loadMigrations();
@@ -147,6 +215,18 @@ class Migrations
         return $this->down(...array_reverse($migrations));
     }
 
+    /**
+     * Revert all migrations to a specific migration or date time
+     *
+     * $file can either be a relative file name (or a portion matched with `strpos()`) or a date time string to execute
+     * all migrations to that time.
+     *
+     * **Note:** This will not revert the migration matched the pattern. It is resetting to the state of the database
+     * to the state when <file> was executed.
+     *
+     * @param string $file
+     * @return bool
+     */
     public function revertTo(string $file)
     {
         $this->loadMigrations();
@@ -180,9 +260,24 @@ class Migrations
         return $this->down(...$migrations);
     }
 
+    /**
+     * Revert specific migrations
+     *
+     * @param Model\Migration ...$migrations
+     * @return bool
+     */
     public function down(Model\Migration ...$migrations)
     {
+        $started = microtime(true);
+        $this->progress->start((object)[
+            'migrations' => $this->migrations,
+            'task' => 'revert',
+            'count' => count($migrations),
+            'toExecute' => $migrations,
+        ]);
+
         foreach ($migrations as $migration) {
+            $this->progress->beforeMigration($migration);
             $this->statements = $migration->statements;
             $start = microtime(true) - $migration->executionTime;
             try {
@@ -198,14 +293,35 @@ class Migrations
                 $this->db->rollBack();
                 throw $exception;
             }
+            $this->progress->afterMigration($migration);
         }
+
+        $this->progress->finish((object)[
+            'migrations' => $this->migrations,
+            'task' => 'revert',
+            'count' => count($migrations),
+            'executed' => $migrations,
+            'executionTime' => microtime(true) - $started
+        ]);
         return true;
+    }
+
+    /** @codeCoverageIgnore */
+    public function getProgress(): ProgressInterface
+    {
+        return $this->progress;
+    }
+
+    /** @codeCoverageIgnore */
+    public function setProgress(ProgressInterface $progress)
+    {
+        $this->progress = $progress;
     }
 
     protected function saveMigration(Model\Migration $migration, $status, $executionTime)
     {
         $exists = (bool)$migration->executed;
-
+        $table = self::$table;
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
         $status === 'reverted' ? $migration->reverted = $now : $migration->executed = $now;
 
@@ -214,7 +330,7 @@ class Migrations
         $migration->executionTime = $executionTime;
 
         if (!$exists) {
-            $this->db->prepare("INSERT INTO migrations
+            $this->db->prepare("INSERT INTO {$table}
                 (file, executed, status, statements, executionTime) VALUES
                 (?, ?, ?, ?, ?)
             ")->execute([
@@ -225,7 +341,7 @@ class Migrations
                 $migration->executionTime
             ]);
         } else {
-            $this->db->prepare("UPDATE migrations SET
+            $this->db->prepare("UPDATE {$table} SET
                 executed = ?, reverted = ?, status = ?, statements = ?, executionTime = ?
                 WHERE file = ?
             ")->execute([
@@ -334,6 +450,7 @@ class Migrations
 
     protected function executeStatement(Model\Statement $statement)
     {
+        $this->progress->beforeExecution($statement);
         $start = microtime(true);
         try {
             $statement->result = $this->db->exec($statement->raw);
@@ -343,6 +460,7 @@ class Migrations
             throw $exception;
         } finally {
             $statement->executionTime = microtime(true) - $start;
+            $this->progress->afterExecution($statement);
         }
     }
 

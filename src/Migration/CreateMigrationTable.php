@@ -3,12 +3,14 @@
 namespace Breyta\Migration;
 
 use Breyta\AbstractMigration;
+use Breyta\Migrations;
 
 class CreateMigrationTable extends AbstractMigration
 {
     public function up(): void
     {
-        $this->exec("CREATE TABLE migrations (
+        $table = Migrations::$table ?? 'migrations';
+        $this->exec("CREATE TABLE {$table} (
             file CHARACTER VARYING (64) NOT NULL,
             executed TIMESTAMP NOT NULL,
             reverted TIMESTAMP,
@@ -17,9 +19,9 @@ class CreateMigrationTable extends AbstractMigration
             executionTime DOUBLE PRECISION,
             PRIMARY KEY (file)
         )");
-        $this->exec("CREATE INDEX migrations_executed_index ON migrations (executed)");
-        $this->exec("CREATE INDEX migrations_status_index ON migrations (status)");
-        $this->exec("CREATE INDEX migrations_execution_time ON migrations (executionTime)");
+        $this->exec("CREATE INDEX {$table}_executed_index ON {$table} (executed)");
+        $this->exec("CREATE INDEX {$table}_status_index ON {$table} (status)");
+        $this->exec("CREATE INDEX {$table}_executionTime_index ON {$table} (executionTime)");
     }
 
     /** @codeCoverageIgnore */

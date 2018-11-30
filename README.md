@@ -45,16 +45,17 @@ class CreateAnimalsTable extends AbstractMigration
 {
     public function up(): void
     {
-        $this->exec('CREATE TABLE "users" (
-            "id" bigserial,
-            "name" character varying (255) NOT NULL,
-            PRIMARY KEY ("id")
+        $this->exec('DROP TABLE IF EXISTS animals');
+        $this->exec('CREATE TABLE animals (
+             id MEDIUMINT NOT NULL AUTO_INCREMENT,
+             name CHAR(30) NOT NULL,
+             PRIMARY KEY (id)
         )');
     }
 
     public function down(): void
     {
-        $this->exec('DROP TABLE "users"');
+        $this->exec('DROP TABLE IF EXISTS animals');
     }
 }
 ```
@@ -66,7 +67,7 @@ Control structure:
 
 namespace App\Cli\Commands;
 
-class MigrateCommand extends AbstractCommand
+class MigrateCommand extends AbstractCommand // implements \Breyta\ProgressInterface
 {
     /**
      * Your database connection
@@ -76,19 +77,31 @@ class MigrateCommand extends AbstractCommand
 
     public function handle()
     {
-        $breyta = new Breyta\Migrations($this->db, '/path/to/migrations');
+        $breyta = new \Breyta\Migrations($this->db, '/path/to/migrations', function($class, ...$args) {
+            // return app()->make($class, $args);
+            // the closure is optional. default:
+            if ($class === \Breyta\AdapterInterface::class) {
+                return new \Breyta\BasicAdapter(...$args); // first arg = closure $executor
+            }
+            return new $class(...$args); // first arg = AdapterInterface $adapter
+        });
         
         // register handler (optional)
-        $breyta->onStart([$this, 'start']);
-        $breyta->onBeginMigration([$this, 'beginMigration']);
-        $breyta->onBeforeExecution([$this, 'beforeExecution']);
-        $breyta->onAfterExecution([$this, 'afterExecution']);
-        $breyta->onFinishMigration([$this, 'finishMigration']);
-        $breyta->onFinish([$this, 'finish']);
+        /** @var \Breyta\CallbackProgress $callbackProgress */
+        $callbackProgress = $breyta->getProgress();
+        $callbackProgress->onStart([$this, 'start'])
+            ->onBeforeMigration([$this, 'beginMigration'])
+            ->onBeforeExecution([$this, 'beforeExecution'])
+            ->onAfterExecution([$this, 'afterExecution'])
+            ->onAfterMigration([$this, 'finishMigration'])
+            ->onFinish([$this, 'finish']);
         
-        // alternative: implement Breyta\ProgressInterface and register
-        $breyta->useProgress($this);
+        // alternative: implement \Breyta\ProgressInterface and register
+        // $breyta->setProgress($this);
         
         $breyta->migrate();
     }
 }
+```
+
+Please also have a look at the [reference](reference.md) for a better overview of the api.  
