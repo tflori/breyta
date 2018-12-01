@@ -33,19 +33,10 @@ abstract class TestCase extends MockeryTestCase
     {
         date_default_timezone_set('UTC');
 
-        $pdo = $this->pdo = m::mock(\PDO::class);
-        $pdo->shouldReceive('setAttribute')->andReturn(true)->byDefault();
-        $pdo->shouldReceive('beginTransaction')->byDefault();
-        $pdo->shouldReceive('commit')->byDefault();
-        $pdo->shouldReceive('rollback')->byDefault();
-        $pdo->shouldReceive('query')->andReturn(false)->byDefault();
-        $this->mockPreparedStatement('/^insert into migrations/i', true);
-        $this->mockPreparedStatement('/^update migrations set/i', true, 0);
-
         $resolver = $this->resolver = m::spy(function ($class, ...$args) {
             return new $class(...$args);
         });
-        $this->migrations = m::mock(Migrations::class, [$this->pdo, __DIR__ . '/Example', $resolver])
+        $this->migrations = m::mock(Migrations::class, [$this->mockPdo(), __DIR__ . '/Example', $resolver])
             ->makePartial();
         $resolver->shouldReceive('__invoke')->with(AdapterInterface::class, m::type(\Closure::class))
             ->andReturnUsing(function ($class, callable $executor) {
@@ -138,5 +129,19 @@ abstract class TestCase extends MockeryTestCase
         $property = $reflection->getProperty($propertyName);
         $property->setAccessible(true);
         return $property->getValue($obj);
+    }
+
+    protected function mockPdo()
+    {
+        $pdo = $this->pdo = m::mock(\PDO::class);
+        $pdo->shouldReceive('setAttribute')->andReturn(true)->byDefault();
+        $pdo->shouldReceive('beginTransaction')->byDefault();
+        $pdo->shouldReceive('commit')->byDefault();
+        $pdo->shouldReceive('rollback')->byDefault();
+        $pdo->shouldReceive('query')->andReturn(false)->byDefault();
+        $this->mockPreparedStatement('/^insert into migrations/i', true);
+        $this->mockPreparedStatement('/^update migrations set/i', true, 0);
+
+        return $pdo;
     }
 }

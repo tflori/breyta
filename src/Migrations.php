@@ -21,6 +21,10 @@ class Migrations
      * @var string */
     public static $table = 'migrations';
 
+    /** The path to the template for migrations
+     * @var string */
+    public static $templatePath = __DIR__ . '/../resources/MigrationTemplate.php';
+
     /** @var \PDO */
     protected $db;
 
@@ -303,6 +307,40 @@ class Migrations
             'executed' => $migrations,
             'executionTime' => microtime(true) - $started
         ]);
+        return true;
+    }
+
+    /**
+     * Creates a migration
+     *
+     * We recommend StudlyCase naming for PSR2 compatibility. Also the files will get a namespace.
+     *
+     * @param string $name
+     * @return bool
+     */
+    public function createMigration(string $name): bool
+    {
+        static $template;
+        if (is_null($template)) {
+            $template = file_get_contents(self::$templatePath);
+        }
+
+        $path = explode('/', $name);
+        $name = array_pop($path);
+        $fileName = implode('/', array_merge($path, [date('Y-m-d\TH.i.s\Z') . '_' . $name . '.php']));
+        $className = $name;
+        $namespace = implode('\\', array_merge(['Migration'], $path));
+        $fullPath = $this->path . DIRECTORY_SEPARATOR . $fileName;
+
+        if (!file_exists(dirname($fullPath))) {
+            mkdir(dirname($fullPath), umask() ^ 0777, true);
+        }
+
+        file_put_contents($fullPath, strtr($template, [
+            'NAMESPACE_NAME' => $namespace,
+            'CLASS_NAME' => $className,
+            'FILE_NAME' => $fileName,
+        ]));
         return true;
     }
 
