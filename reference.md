@@ -7,6 +7,7 @@
 * [AdapterInterface](#breytaadapterinterface)
 * [BasicAdapter](#breytabasicadapter)
 * [CallbackProgress](#breytacallbackprogress)
+* [Migrations](#breytamigrations)
 * [ProgressInterface](#breytaprogressinterface)
 
 
@@ -91,75 +92,6 @@ Returns false on error and an integer of affected rows on success.
 **See Also:**
 
 * http://php.net/manual/en/pdo.exec.php - for a details about the return statement
-
-
----
-
-### Breyta\Model\Migration
-
-
-
-
-
-
-
-
-
-#### Properties
-
-| Visibility | Name | Type | Description                           |
-|------------|------|------|---------------------------------------|
-| **public** | `$file` | **string** |  |
-| **public** | `$executed` | ** \ DateTime** |  |
-| **public** | `$reverted` | ** \ DateTime** |  |
-| **public** | `$status` | **string** |  |
-| **public** | `$statements` | **string &#124; array &#124; array&lt;Statement>** |  |
-| **public** | `$executionTime` | **double** |  |
-
-
-
-#### Methods
-
-* [__construct](#breytamodelmigration__construct) 
-* [createInstance](#breytamodelmigrationcreateinstance) 
-
-#### Breyta\Model\Migration::__construct
-
-```php
-public function __construct(): Migration
-```
-
-
-
-
-**Visibility:** this method is **public**.
-<br />
-
-
-
-
-#### Breyta\Model\Migration::createInstance
-
-```php
-public static function createInstance( array $data = array() )
-```
-
-
-
-
-**Static:** this method is **static**.
-<br />**Visibility:** this method is **public**.
-<br />
-
-
-##### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `$data` | **array**  |  |
-
-
-
 
 
 ---
@@ -329,6 +261,75 @@ Info contains:
 
 ---
 
+### Breyta\Model\Migration
+
+
+
+
+
+
+
+
+
+#### Properties
+
+| Visibility | Name | Type | Description                           |
+|------------|------|------|---------------------------------------|
+| **public** | `$file` | **string** |  |
+| **public** | `$executed` | ** \ DateTime** |  |
+| **public** | `$reverted` | ** \ DateTime** |  |
+| **public** | `$status` | **string** |  |
+| **public** | `$statements` | **string &#124; array &#124; array&lt;Statement>** |  |
+| **public** | `$executionTime` | **double** |  |
+
+
+
+#### Methods
+
+* [__construct](#breytamodelmigration__construct) 
+* [createInstance](#breytamodelmigrationcreateinstance) 
+
+#### Breyta\Model\Migration::__construct
+
+```php
+public function __construct(): Migration
+```
+
+
+
+
+**Visibility:** this method is **public**.
+<br />
+
+
+
+
+#### Breyta\Model\Migration::createInstance
+
+```php
+public static function createInstance( array $data = array() )
+```
+
+
+
+
+**Static:** this method is **static**.
+<br />**Visibility:** this method is **public**.
+<br />
+
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$data` | **array**  |  |
+
+
+
+
+
+---
+
 ### Breyta\Model\Statement
 
 
@@ -393,6 +394,434 @@ public static function createInstance( array $data = array() )
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `$data` | **array**  |  |
+
+
+
+
+
+---
+
+### Breyta\Migrations
+
+
+
+
+The migration engine that puts all parts together.
+
+
+
+#### Constants
+
+| Name | Value |
+|------|-------|
+| INTERNAL_PREFIX | `'@breyta/'` |
+
+
+#### Properties
+
+| Visibility | Name | Type | Description                           |
+|------------|------|------|---------------------------------------|
+| **public static** | `$table` | **string** | The name of the migration table |
+| **public static** | `$templatePath` | **string** | The path to the template for migrations |
+| **protected** | `$db` | ** \ PDO** |  |
+| **protected** | `$path` | **string** |  |
+| **protected** | `$migrations` | **array &#124; array&lt;Model \ Migration>** |  |
+| **protected** | `$missingMigrations` | **array &#124; array&lt;Model \ Migration>** |  |
+| **protected** | `$statements` | **array &#124; array&lt;Model \ Statement>** |  |
+| **protected** | `$adapter` | **AdapterInterface** |  |
+| **protected** | `$resolver` | **callable** |  |
+| **protected** | `$progress` | **ProgressInterface** |  |
+
+
+
+#### Methods
+
+* [__construct](#breytamigrations__construct) 
+* [createMigration](#breytamigrationscreatemigration) Creates a migration
+* [down](#breytamigrationsdown) Revert specific migrations
+* [executeStatement](#breytamigrationsexecutestatement) 
+* [findMigrations](#breytamigrationsfindmigrations) 
+* [getAdapter](#breytamigrationsgetadapter) 
+* [getProgress](#breytamigrationsgetprogress) 
+* [getStatus](#breytamigrationsgetstatus) Returns the status of the migrations
+* [internalClass](#breytamigrationsinternalclass) 
+* [isInternal](#breytamigrationsisinternal) 
+* [loadMigrations](#breytamigrationsloadmigrations) 
+* [migrate](#breytamigrationsmigrate) Migrate all migrations that are not migrated yet
+* [migrateTo](#breytamigrationsmigrateto) Migrate all migrations to a specific migration or date time
+* [revert](#breytamigrationsrevert) Revert all migrations that have been migrated
+* [revertTo](#breytamigrationsrevertto) Revert all migrations to a specific migration or date time
+* [saveMigration](#breytamigrationssavemigration) 
+* [setProgress](#breytamigrationssetprogress) 
+* [up](#breytamigrationsup) Migrate specific migrations
+
+#### Breyta\Migrations::__construct
+
+```php
+public function __construct(
+    \PDO $db, \Breyta\string $path, callable $resolver = null, 
+    \Breyta\ProgressInterface $progress = null
+): Migrations
+```
+
+
+
+
+**Visibility:** this method is **public**.
+<br />
+
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$db` | **\PDO**  |  |
+| `$path` | **string**  |  |
+| `$resolver` | **callable**  |  |
+| `$progress` | **ProgressInterface**  |  |
+
+
+
+#### Breyta\Migrations::createMigration
+
+```php
+public function createMigration( string $name ): boolean
+```
+
+##### Creates a migration
+
+We recommend StudlyCase naming for PSR2 compatibility. Also the files will get a namespace.
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **boolean**
+<br />
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$name` | **string**  |  |
+
+
+
+#### Breyta\Migrations::down
+
+```php
+public function down( \Breyta\Model\Migration $migrations ): boolean
+```
+
+##### Revert specific migrations
+
+
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **boolean**
+<br />
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$migrations` | **Model\Migration**  |  |
+
+
+
+#### Breyta\Migrations::executeStatement
+
+```php
+protected function executeStatement( \Breyta\Model\Statement $statement )
+```
+
+
+
+
+**Visibility:** this method is **protected**.
+<br />
+
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$statement` | **Model\Statement**  |  |
+
+
+
+#### Breyta\Migrations::findMigrations
+
+```php
+protected function findMigrations()
+```
+
+
+
+
+**Visibility:** this method is **protected**.
+<br />
+
+
+
+
+#### Breyta\Migrations::getAdapter
+
+```php
+protected function getAdapter()
+```
+
+
+
+
+**Visibility:** this method is **protected**.
+<br />
+
+
+
+
+#### Breyta\Migrations::getProgress
+
+```php
+public function getProgress()
+```
+
+
+
+
+**Visibility:** this method is **public**.
+<br />
+
+
+
+
+#### Breyta\Migrations::getStatus
+
+```php
+public function getStatus(): \stdClass
+```
+
+##### Returns the status of the migrations
+
+It contains an array of all migrations, the count of migrations that are not migrated yet and an array of
+migrations that got removed (if files where removed).
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **\stdClass**
+<br />
+
+
+
+#### Breyta\Migrations::internalClass
+
+```php
+protected static function internalClass( \Breyta\string $file )
+```
+
+
+
+
+**Static:** this method is **static**.
+<br />**Visibility:** this method is **protected**.
+<br />
+
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$file` | **string**  |  |
+
+
+
+#### Breyta\Migrations::isInternal
+
+```php
+protected static function isInternal( \Breyta\string $file )
+```
+
+
+
+
+**Static:** this method is **static**.
+<br />**Visibility:** this method is **protected**.
+<br />
+
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$file` | **string**  |  |
+
+
+
+#### Breyta\Migrations::loadMigrations
+
+```php
+protected function loadMigrations()
+```
+
+
+
+
+**Visibility:** this method is **protected**.
+<br />
+
+
+
+
+#### Breyta\Migrations::migrate
+
+```php
+public function migrate(): boolean
+```
+
+##### Migrate all migrations that are not migrated yet
+
+
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **boolean**
+<br />
+
+
+
+#### Breyta\Migrations::migrateTo
+
+```php
+public function migrateTo( string $file ): boolean
+```
+
+##### Migrate all migrations to a specific migration or date time
+
+$file can either be a relative file name (or a portion matched with `strpos()`) or a date time string to execute
+all migrations to that time.
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **boolean**
+<br />
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$file` | **string**  |  |
+
+
+
+#### Breyta\Migrations::revert
+
+```php
+public function revert(): boolean
+```
+
+##### Revert all migrations that have been migrated
+
+
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **boolean**
+<br />
+
+
+
+#### Breyta\Migrations::revertTo
+
+```php
+public function revertTo( string $file ): boolean
+```
+
+##### Revert all migrations to a specific migration or date time
+
+$file can either be a relative file name (or a portion matched with `strpos()`) or a date time string to execute
+all migrations to that time.
+
+**Note:** This will not revert the migration matched the pattern. It is resetting to the state of the database
+to the state when <file> was executed.
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **boolean**
+<br />
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$file` | **string**  |  |
+
+
+
+#### Breyta\Migrations::saveMigration
+
+```php
+protected function saveMigration(
+    \Breyta\Model\Migration $migration, $status, $executionTime
+)
+```
+
+
+
+
+**Visibility:** this method is **protected**.
+<br />
+
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$migration` | **Model\Migration**  |  |
+| `$status` |   |  |
+| `$executionTime` |   |  |
+
+
+
+#### Breyta\Migrations::setProgress
+
+```php
+public function setProgress( \Breyta\ProgressInterface $progress )
+```
+
+
+
+
+**Visibility:** this method is **public**.
+<br />
+
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$progress` | **ProgressInterface**  |  |
+
+
+
+#### Breyta\Migrations::up
+
+```php
+public function up( \Breyta\Model\Migration $migrations ): boolean
+```
+
+##### Migrate specific migrations
+
+
+
+**Visibility:** this method is **public**.
+<br />
+ **Returns**: this method returns **boolean**
+<br />
+
+##### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$migrations` | **Model\Migration**  |  |
 
 
 
