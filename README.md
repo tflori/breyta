@@ -1,5 +1,11 @@
 # breyta
 
+[![Build Status](https://travis-ci.org/tflori/breyta.svg?branch=master)](https://travis-ci.org/tflori/breyta)
+[![Coverage Status](https://coveralls.io/repos/github/tflori/breyta/badge.svg?branch=master)](https://coveralls.io/github/tflori/breyta?branch=master)
+[![Latest Stable Version](https://poser.pugx.org/tflori/breyta/v/stable.svg)](https://packagist.org/packages/tflori/breyta) 
+[![Total Downloads](https://poser.pugx.org/tflori/breyta/downloads.svg)](https://packagist.org/packages/tflori/breyta) 
+[![License](https://poser.pugx.org/tflori/breyta/license.svg)](https://packagist.org/packages/tflori/breyta)
+
 Breyta is a **library** for database migrations. There are a lot of applications for database migrations but no
 actual library (without any user interface).
 
