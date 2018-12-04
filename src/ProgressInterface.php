@@ -28,15 +28,15 @@ interface ProgressInterface
 
     /**
      * Output information about the $statement (before it gets executed)
-     * @param Statement $execution
+     * @param Statement $statement
      */
-    public function beforeExecution(Statement $execution);
+    public function beforeExecution(Statement $statement);
 
     /**
      * Output information about the $statement (after it gets executed)
-     * @param Statement $execution
+     * @param Statement $statement
      */
-    public function afterExecution(Statement $execution);
+    public function afterExecution(Statement $statement);
 
     /**
      * Output information about the $migration (after the migration)

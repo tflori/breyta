@@ -315,10 +315,12 @@ class Migrations
      *
      * We recommend StudlyCase naming for PSR2 compatibility. Also the files will get a namespace.
      *
+     * Returns the path to the generated migration.
+     *
      * @param string $name
-     * @return bool
+     * @return string
      */
-    public function createMigration(string $name): bool
+    public function createMigration(string $name): string
     {
         static $template;
         if (is_null($template)) {
@@ -341,7 +343,7 @@ class Migrations
             'CLASS_NAME' => $className,
             'FILE_NAME' => $fileName,
         ]));
-        return true;
+        return $fullPath;
     }
 
     /** @codeCoverageIgnore */

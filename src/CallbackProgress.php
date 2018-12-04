@@ -73,11 +73,11 @@ class CallbackProgress implements ProgressInterface
     /**
      * Output information about the $statement (before it gets executed)
      *
-     * @param Statement $execution
+     * @param Statement $statement
      */
-    public function beforeExecution(Statement $execution)
+    public function beforeExecution(Statement $statement)
     {
-        !$this->beforeExecutionCallback || call_user_func($this->beforeExecutionCallback, $execution);
+        !$this->beforeExecutionCallback || call_user_func($this->beforeExecutionCallback, $statement);
     }
 
     public function onBeforeExecution(callable $callback): self
@@ -89,11 +89,11 @@ class CallbackProgress implements ProgressInterface
     /**
      * Output information about the $statement (after it gets executed)
      *
-     * @param Statement $execution
+     * @param Statement $statement
      */
-    public function afterExecution(Statement $execution)
+    public function afterExecution(Statement $statement)
     {
-        !$this->afterExecutionCallback || call_user_func($this->afterExecutionCallback, $execution);
+        !$this->afterExecutionCallback || call_user_func($this->afterExecutionCallback, $statement);
     }
 
     public function onAfterExecution(callable $callback): self
