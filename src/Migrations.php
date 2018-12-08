@@ -283,7 +283,7 @@ class Migrations
         foreach ($migrations as $migration) {
             $this->progress->beforeMigration($migration);
             $this->statements = $migration->statements;
-            $start = microtime(true) - $migration->executionTime;
+            $start = microtime(true) - $migration->execution_time;
             try {
                 $this->db->beginTransaction();
                 $class = self::internalClass($migration->file) ??
@@ -367,7 +367,7 @@ class Migrations
 
         $migration->statements = $this->statements;
         $migration->status = $status;
-        $migration->executionTime = $executionTime;
+        $migration->execution_time = $executionTime;
 
         if (!$exists) {
             $this->db->prepare("INSERT INTO {$table}
@@ -378,7 +378,7 @@ class Migrations
                 $migration->executed->format('c'),
                 $migration->status,
                 json_encode($migration->statements),
-                $migration->executionTime
+                $migration->execution_time
             ]);
         } else {
             $this->db->prepare("UPDATE {$table} SET
@@ -389,7 +389,7 @@ class Migrations
                 $migration->reverted ? $migration->reverted->format('c') : null,
                 $migration->status,
                 json_encode($migration->statements),
-                $migration->executionTime,
+                $migration->execution_time,
                 $migration->file
             ]);
         }

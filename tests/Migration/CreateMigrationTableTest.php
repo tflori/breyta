@@ -35,7 +35,7 @@ class CreateMigrationTableTest extends TestCase
             ->with(m::pattern('/create index.* on migrations\s*\(\s*status\s*\)/i'))
             ->once();
         $adapter->shouldHaveReceived('exec')
-            ->with(m::pattern('/create index.* on migrations\s*\(\s*executionTime\s*\)/i'))
+            ->with(m::pattern('/create index.* on migrations\s*\(\s*execution_time\s*\)/i'))
             ->once();
     }
 }

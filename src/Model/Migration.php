@@ -23,7 +23,7 @@ class Migration
     public $statements = [];
 
     /** @var double */
-    public $executionTime;
+    public $execution_time;
 
     public function __construct()
     {
