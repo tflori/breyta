@@ -371,7 +371,7 @@ class Migrations
 
         if (!$exists) {
             $this->db->prepare("INSERT INTO {$table}
-                (file, executed, status, statements, executionTime) VALUES
+                (file, executed, status, statements, execution_time) VALUES
                 (?, ?, ?, ?, ?)
             ")->execute([
                 $migration->file,
@@ -382,7 +382,7 @@ class Migrations
             ]);
         } else {
             $this->db->prepare("UPDATE {$table} SET
-                executed = ?, reverted = ?, status = ?, statements = ?, executionTime = ?
+                executed = ?, reverted = ?, status = ?, statements = ?, execution_time = ?
                 WHERE file = ?
             ")->execute([
                 $migration->executed->format('c'),
