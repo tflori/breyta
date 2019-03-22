@@ -34,9 +34,9 @@ class BasicAdapter implements AdapterInterface
         if (preg_match(
             '/^(alter|create|drop) ' .  // action
             '(?>[a-z=]+ )*?' . // something between like 'OR REPLACE', 'DEFINER = user' etc...
-            '(?>(table|index|function|trigger|view|procedure) )' . // type
+            '(?>(table|index|function|trigger|view|procedure|type) )' . // type
             '(' . $namePattern . ')' . // name
-            ' /i',
+            '(?> |$|;)/i',
             $statement,
             $match
         )) {
