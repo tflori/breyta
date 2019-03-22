@@ -35,6 +35,7 @@ class BasicAdapter implements AdapterInterface
             '/^(alter|create|drop) ' .  // action
             '(?>[a-z=]+ )*?' . // something between like 'OR REPLACE', 'DEFINER = user' etc...
             '(?>(table|index|function|trigger|view|procedure|type) )' . // type
+            '(?>IF (?>NOT )?EXISTS )?' . // 'IF EXISTS'
             '(' . $namePattern . ')' . // name
             '(?> |$|;)/i',
             $statement,
@@ -45,7 +46,7 @@ class BasicAdapter implements AdapterInterface
             $statement->type = strtolower($match[2]);
             $statement->name = str_replace(['"', '`'], '', $match[3]);
         } elseif (preg_match(
-            '/^(update|delete) ' .  // action
+            '/^(update|delete|insert into) ' .  // action
             '(' . $namePattern . ')' . // name
             ' /i',
             $statement,
