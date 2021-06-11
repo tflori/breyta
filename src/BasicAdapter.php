@@ -31,27 +31,22 @@ class BasicAdapter implements AdapterInterface
         $delimPattern = '(?>`|")?'; // optional delimiter pattern
         $namePattern = $delimPattern . '(?>[a-z0-9_]+' . $delimPattern . '\.' . $delimPattern . ')?' . // schema
                        '[a-z0-9_]+' . $delimPattern;
-        if (preg_match(
-            '/^(alter|create|drop) ' .  // action
+        $wTypePattern = '/^(alter|create|drop) ' .  // action
             '(?>[a-z=]+ )*?' . // something between like 'OR REPLACE', 'DEFINER = user' etc...
             '(?>(table|index|function|trigger|view|procedure|type) )' . // type
             '(?>IF (?>NOT )?EXISTS )?' . // 'IF EXISTS'
             '(' . $namePattern . ')' . // name
-            '(?> |$|;)/i',
-            $statement,
-            $match
-        )) {
+            '(?>\s|$|;)/i';
+        $woTypePattern = '/^(update|delete|insert into) ' .  // action
+            '(' . $namePattern . ')' . // name
+            ' /i';
+
+        if (preg_match($wTypePattern, $statement, $match)) {
             $statement->teaser = implode(' ', [strtoupper($match[1]), strtoupper($match[2]), $match[3]]);
             $statement->action = strtolower($match[1]);
             $statement->type = strtolower($match[2]);
             $statement->name = str_replace(['"', '`'], '', $match[3]);
-        } elseif (preg_match(
-            '/^(update|delete|insert into) ' .  // action
-            '(' . $namePattern . ')' . // name
-            ' /i',
-            $statement,
-            $match
-        )) {
+        } elseif (preg_match($woTypePattern, $statement, $match)) {
             $statement->teaser = implode(' ', [strtoupper($match[1]), $match[2]]);
             $statement->action = strtolower($match[1]);
             $statement->name = str_replace(['"', '`'], '', $match[2]);
