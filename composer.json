@@ -5,7 +5,8 @@
     "require": {
         "php": "^7.1",
         "ext-pdo": "*",
-        "ext-json": "*"
+        "ext-json": "*",
+        "ext-tokenizer": "*"
     },
     "require-dev": {
         "mockery/mockery": "^1.1",
