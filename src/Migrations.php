@@ -375,7 +375,7 @@ class Migrations
                 (?, ?, ?, ?, ?)
             ")->execute([
                 $migration->file,
-                $migration->executed->format('c'),
+                $migration->executed->format('Y-m-d H:i:s'),
                 $migration->status,
                 json_encode($migration->statements),
                 $migration->execution_time
@@ -385,8 +385,8 @@ class Migrations
                 executed = ?, reverted = ?, status = ?, statements = ?, execution_time = ?
                 WHERE file = ?
             ")->execute([
-                $migration->executed->format('c'),
-                $migration->reverted ? $migration->reverted->format('c') : null,
+                $migration->executed->format('Y-m-d H:i:s'),
+                $migration->reverted ? $migration->reverted->format('Y-m-d H:i:s') : null,
                 $migration->status,
                 json_encode($migration->statements),
                 $migration->execution_time,
