@@ -44,8 +44,8 @@ class DownTest extends TestCase
         $this->mockPreparedStatement('/^update migrations set/i')
             ->shouldReceive('execute')->withArgs(function (array $values) use ($migration) {
                 self::assertCount(6, $values);
-                self::assertSame($migration->model->executed->format('c'), array_shift($values));
-                self::assertSame(date('c'), array_shift($values));
+                self::assertSame($migration->model->executed->format('Y-m-d H:i:s'), array_shift($values));
+                self::assertSame(date('Y-m-d H:i:s'), array_shift($values));
                 self::assertSame('reverted', array_shift($values));
                 self::assertSame('[]', array_shift($values));
                 self::assertInternalType('double', array_shift($values));

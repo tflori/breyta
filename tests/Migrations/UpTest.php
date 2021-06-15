@@ -44,7 +44,7 @@ class UpTest extends TestCase
             ->shouldReceive('execute')->withArgs(function (array $values) {
                 self::assertCount(5, $values);
                 self::assertSame('@breyta/CreateMigrationTable.php', array_shift($values));
-                self::assertSame(date('c'), array_shift($values));
+                self::assertSame(date('Y-m-d H:i:s'), array_shift($values));
                 self::assertSame('done', array_shift($values));
                 self::assertSame('[]', array_shift($values));
                 self::assertInternalType('double', array_shift($values));
@@ -65,7 +65,7 @@ class UpTest extends TestCase
         $this->mockPreparedStatement('/^update migrations set/i')
             ->shouldReceive('execute')->withArgs(function (array $values) {
                 self::assertCount(6, $values);
-                self::assertSame(date('c'), array_shift($values));
+                self::assertSame(date('Y-m-d H:i:s'), array_shift($values));
                 self::assertSame(null, array_shift($values));
                 self::assertSame('done', array_shift($values));
                 self::assertSame('[]', array_shift($values));
@@ -101,7 +101,7 @@ class UpTest extends TestCase
             ->shouldReceive('execute')->withArgs(function (array $values) {
                 self::assertCount(5, $values);
                 self::assertSame('@breyta/CreateMigrationTable.php', array_shift($values));
-                self::assertSame(date('c'), array_shift($values));
+                self::assertSame(date('Y-m-d H:i:s'), array_shift($values));
                 self::assertSame('failed', array_shift($values));
                 self::assertSame('[]', array_shift($values));
                 self::assertInternalType('double', array_shift($values));
