@@ -13,7 +13,7 @@ class CreateMigrationTable extends AbstractMigration
         $this->exec("CREATE TABLE {$table} (
             file CHARACTER VARYING (64) NOT NULL,
             executed TIMESTAMP NOT NULL,
-            reverted TIMESTAMP,
+            reverted TIMESTAMP NULL DEFAULT NULL,
             status CHARACTER VARYING (16) NOT NULL DEFAULT 'done',
             statements TEXT,
             execution_time DOUBLE PRECISION,
