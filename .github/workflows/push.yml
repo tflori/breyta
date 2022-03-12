@@ -12,4 +12,9 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --ansi
       - name: Execute tests
-        run: vendor/bin/phpunit -c phpunit.xml --coverage-clover=build/logs/clover.xml --coverage-text
+        run: |
+          php -dzend_extension=xdebug.so vendor/bin/phpunit \
+            -c phpunit.xml \
+            --coverage-clover=build/logs/clover.xml \
+            --coverage-text \
+            --color=always
