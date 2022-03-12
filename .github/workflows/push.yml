@@ -14,7 +14,9 @@ jobs:
           path: /composer/cache
           key: composer-cache
       - name: Install dependencies
-        run: composer install --no-interaction --ansi
+        run: |
+          composer install --no-interaction --ansi
+          apk add --no-cache tar
       - name: Execute tests
         run: |
           php -dzend_extension=xdebug.so vendor/bin/phpunit \
