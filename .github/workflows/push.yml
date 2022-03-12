@@ -1,26 +1,54 @@
-on: [push]
+on: [push, pull_request]
 jobs:
+  code-style:
+    name: Verify Code Style
+    runs-on: ubuntu-latest
+    container: iras/php7-composer:1
+    steps:
+      - name: Container Setup
+        run: apk add --no-cache tar
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v2
+        with:
+          path: /composer/cache
+          key: composer-cache-7.1
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --ansi
+          apk add --no-cache tar
+      - name: Verify code style
+        run: composer run-script code-style
+
   unit-tests-7:
     strategy:
       matrix:
-        MINOR_VERSION: [1, 2]
+        MINOR_VERSION: [1, 2, 3, 4]
     name: PHP Unit Tests on PHP 7.${{ matrix.MINOR_VERSION }}
     runs-on: ubuntu-latest
     container: iras/php7-composer:${{ matrix.MINOR_VERSION }}
     steps:
+      - name: Container Setup
+        run: apk add --no-cache tar
       - uses: actions/checkout@v3
       - uses: actions/cache@v2
         with:
           path: /composer/cache
           key: composer-cache-7.${{ matrix.MINOR_VERSION }}
       - name: Install dependencies
-        run: |
-          composer install --no-interaction --ansi
-          apk add --no-cache tar
+        run: composer install --no-interaction --ansi
       - name: Execute tests
         run: |
-          php -dzend_extension=xdebug.so vendor/bin/phpunit \
+          php -dzend_extension=xdebug.so -dxdebug.mode=coverage vendor/bin/phpunit \
             -c phpunit.xml \
             --coverage-clover=build/logs/clover.xml \
             --coverage-text \
             --color=always
+      - name: Report Coverage
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: |
+          if [ "${{ matrix.MINOR_VERSION }}" -eq "4" ]; then
+            echo ${COVERALLS_REPO_TOKEN:0:3}...${COVERALLS_REPO_TOKEN:30:35}
+            wget https://github.com/php-coveralls/php-coveralls/releases/latest/download/php-coveralls.phar
+            php php-coveralls.phar -v
+          fi
