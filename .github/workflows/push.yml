@@ -1,0 +1,15 @@
+on: [push]
+jobs:
+  unit-tests-7:
+    strategy:
+      matrix:
+        MINOR_VERSION: [1, 2]
+    name: PHP Unit Tests on PHP 7.${{ matrix.MINOR_VERSION }}
+    runs-on: ubuntu-latest
+    container: iras/php7-composer:${{ matrix.MINOR_VERSION }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: composer install --no-interaction --ansi
+      - name: Execute tests
+        run: vendor/bin/phpunit -c phpunit.xml --coverage-clover=build/logs/clover.xml --coverage-text
