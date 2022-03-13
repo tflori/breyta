@@ -6,6 +6,7 @@ class FileHelper
 {
     const NAMESPACE_PATTERN = '/^[ \t]*namespace[ \t]+([a-z_][a-z0-9_]*(?:\\\\[a-z_][a-z0-9_]*)*)[ \t]*;$/mi';
     const CLASS_PATTERN = '/^[ \t]*class[ \t]+([a-z_][a-z0-9_]*)(?:[ \t\n]+extends [a-z0-9_]+)?[ \t\n]*{$/mi';
+
     /**
      * Get the first full qualified class name in $file
      *
@@ -27,6 +28,42 @@ class FileHelper
 
         $name[] = $match[1];
         return  implode('\\', $name);
+    }
+
+    /**
+     * Find all migrations in $path
+     *
+     * @param string $path
+     * @return array
+     */
+    public static function findMigrationFiles(string $path): array
+    {
+        $result = [];
+
+        /** @var \SplFileInfo $fileInfo */
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path)) as $fileInfo) {
+            if (is_dir($fileInfo->getPathname()) ||
+                $fileInfo->getFilename()[0] === '.' ||
+                substr($fileInfo->getFilename(), -4) !== '.php'
+            ) {
+                continue;
+            }
+
+            $className = self::getClassFromFile($fileInfo->getPathname());
+            if (!$className) {
+                continue;
+            }
+
+            require_once $fileInfo->getPathname();
+            if (!is_subclass_of($className, AbstractMigration::class)) {
+                continue;
+            }
+
+            $file = substr($fileInfo->getPathname(), strlen($path) + 1);
+            $result[] = $file;
+        }
+
+        return $result;
     }
 
     /**

@@ -427,31 +427,12 @@ class Migrations
             'status' => 'new',
         ])];
 
-        /** @var \SplFileInfo $fileInfo */
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->path)) as $fileInfo) {
-            if (is_dir($fileInfo->getPathname()) ||
-                $fileInfo->getFilename()[0] === '.' ||
-                substr($fileInfo->getFilename(), -4) !== '.php'
-            ) {
-                continue;
-            }
-
-            $className = FileHelper::getClassFromFile($fileInfo->getPathname());
-            if (!$className) {
-                continue;
-            }
-
-            require_once $fileInfo->getPathname();
-            if (!is_subclass_of($className, AbstractMigration::class)) {
-                continue;
-            }
-
-            $file = substr($fileInfo->getPathname(), strlen($this->path) + 1);
-            $migrations[] = Model\Migration::createInstance([
+        $migrations = array_merge($migrations, array_map(function (string $file) {
+            return Model\Migration::createInstance([
                 'file' => $file,
                 'status' => 'new'
             ]);
-        }
+        }, FileHelper::findMigrationFiles($this->path)));
 
         usort($migrations, function ($left, $right) {
             // sort criteria 1: is from breyta
