@@ -1,35 +1,42 @@
 on: [push, pull_request]
 jobs:
-  code-style:
-    name: Verify Code Style
+  before:
     runs-on: ubuntu-latest
-    container: iras/php7-composer:1
     steps:
-      - name: Container Setup
-        run: apk add --no-cache tar
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v2
-        with:
-          path: /composer/cache
-          key: composer-cache-7.1
-      - name: Install dependencies
+      - name: Prepare CodeClimate
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
         run: |
-          composer install --no-interaction --ansi
-          apk add --no-cache tar
-      - name: Verify code style
-        run: composer run-script code-style
+          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -O ./cc-test-reporter
+          chmod +x ./cc-test-reporter
+          ./cc-test-reporter before-build
 
-  unit-tests-7:
+  unit-tests:
+    needs: [before]
     strategy:
       matrix:
-        MINOR_VERSION: [1, 2, 3, 4]
-    name: PHP Unit Tests on PHP 7.${{ matrix.MINOR_VERSION }}
+        include:
+          - image: 'iras/php7-composer:1'
+            php_version: 7.1
+          - image: 'iras/php7-composer:2'
+            php_version: 7.2
+          - image: 'iras/php7-composer:3'
+            php_version: 7.3
+          - image: 'iras/php7-composer:4'
+            php_version: 7.4
+#          - image: 'iras/php8-composer:0'
+#            php_version: 8.0
+    name: PHP Unit Tests on PHP ${{ matrix.php_version }}
     runs-on: ubuntu-latest
-    container: iras/php7-composer:${{ matrix.MINOR_VERSION }}
+    container: ${{ matrix.image }}
     steps:
-      - name: Container Setup
-        run: apk add --no-cache tar
       - uses: actions/checkout@v3
+      - name: Container Setup
+        run: |
+          apk add --no-cache tar openssl
+          mkdir coverage
+          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -O coverage/cc-test-reporter
+          chmod +x coverage/cc-test-reporter
       - uses: actions/cache@v2
         with:
           path: /composer/cache
@@ -40,15 +47,31 @@ jobs:
         run: |
           php -dzend_extension=xdebug.so -dxdebug.mode=coverage vendor/bin/phpunit \
             -c phpunit.xml \
-            --coverage-clover=build/logs/clover.xml \
+            --coverage-clover=coverage/clover.xml \
             --coverage-text \
             --color=always
+      - name: Format Coverage
+        run: |
+          coverage/cc-test-reporter format-coverage -t clover -o coverage/cc-${{ matrix.php_version }}.json coverage/clover.xml
+      - name: Store Coverage Result
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-results
+          path: coverage/
+
+  after:
+    needs: [unit-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore Coverage Result
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-results
       - name: Report Coverage
         env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
         run: |
-          if [ "${{ matrix.MINOR_VERSION }}" -eq "4" ]; then
-            echo ${COVERALLS_REPO_TOKEN:0:3}...${COVERALLS_REPO_TOKEN:30:35}
-            wget https://github.com/php-coveralls/php-coveralls/releases/latest/download/php-coveralls.phar
-            php php-coveralls.phar -v
-          fi
+          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -O ./cc-test-reporter
+          chmod +x ./cc-test-reporter
+          ./cc-test-reporter sum-coverage coverage/cc-*.json -p 4 -o coverage/cc-total.json
+          ./cc-test-reporter upload-coverage -i coverage/cc-total.json
