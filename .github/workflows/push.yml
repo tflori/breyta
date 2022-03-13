@@ -7,7 +7,7 @@ jobs:
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
         run: |
-          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -O ./cc-test-reporter
+          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -qO ./cc-test-reporter
           chmod +x ./cc-test-reporter
           ./cc-test-reporter before-build
 
@@ -30,13 +30,16 @@ jobs:
     runs-on: ubuntu-latest
     container: ${{ matrix.image }}
     steps:
-      - uses: actions/checkout@v3
       - name: Container Setup
         run: |
           apk add --no-cache tar openssl
           mkdir coverage
-          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -O coverage/cc-test-reporter
-          chmod +x coverage/cc-test-reporter
+          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -qO /usr/bin/cc-test-reporter
+          chmod +x /usr/bin/cc-test-reporter
+      - name: Checkout
+        run: |
+          git init && git remote add origin https://github.com/${{ github.repository }}.git
+          git fetch origin ${{ github.sha }} && git reset --hard ${{ github.sha }}
       - uses: actions/cache@v2
         with:
           path: /composer/cache
@@ -52,7 +55,7 @@ jobs:
             --color=always
       - name: Format Coverage
         run: |
-          coverage/cc-test-reporter format-coverage -t clover -o coverage/cc-${{ matrix.php_version }}.json coverage/clover.xml
+          cc-test-reporter format-coverage -t clover -o coverage/cc-${{ matrix.php_version }}.json coverage/clover.xml
       - name: Store Coverage Result
         uses: actions/upload-artifact@v3
         with:
@@ -67,11 +70,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: coverage-results
+          path: coverage/
       - name: Report Coverage
         env:
           CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
         run: |
-          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -O ./cc-test-reporter
+          wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -qO ./cc-test-reporter
           chmod +x ./cc-test-reporter
           ./cc-test-reporter sum-coverage coverage/cc-*.json -p 4 -o coverage/cc-total.json
           ./cc-test-reporter upload-coverage -i coverage/cc-total.json
