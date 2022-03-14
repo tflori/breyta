@@ -353,8 +353,6 @@ class Migrations
 
     protected function saveMigration(Model\Migration $migration, $status, $executionTime)
     {
-        $exists = (bool)$migration->executed;
-        $table = self::$table;
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
         $status === 'reverted' ? $migration->reverted = $now : $migration->executed = $now;
 
@@ -362,30 +360,7 @@ class Migrations
         $migration->status = $status;
         $migration->execution_time = $executionTime;
 
-        if (!$exists) {
-            $this->db->prepare("INSERT INTO {$table}
-                (file, executed, status, statements, execution_time) VALUES
-                (?, ?, ?, ?, ?)
-            ")->execute([
-                $migration->file,
-                $migration->executed->format('Y-m-d H:i:s'),
-                $migration->status,
-                json_encode($migration->statements),
-                $migration->execution_time
-            ]);
-        } else {
-            $this->db->prepare("UPDATE {$table} SET
-                executed = ?, reverted = ?, status = ?, statements = ?, execution_time = ?
-                WHERE file = ?
-            ")->execute([
-                $migration->executed->format('Y-m-d H:i:s'),
-                $migration->reverted ? $migration->reverted->format('Y-m-d H:i:s') : null,
-                $migration->status,
-                json_encode($migration->statements),
-                $migration->execution_time,
-                $migration->file
-            ]);
-        }
+        $migration->save($this->db, self::$table);
     }
 
     protected function loadMigrations()
