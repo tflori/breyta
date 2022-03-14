@@ -124,6 +124,6 @@ class StatusTest extends TestCase
 
         self::assertObjectHasAttribute('missing', $status);
         self::assertSame(1, count($status->missing));
-        self::assertContains($migration, $status->missing);
+        self::assertContainsCompat($migration, $status->missing);
     }
 }

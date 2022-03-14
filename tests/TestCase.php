@@ -146,13 +146,23 @@ abstract class TestCase extends MockeryTestCase
         return $pdo;
     }
 
-    public static function assertContains($needle, $haystack, string $message = '', bool $strict = true): void
+    public static function assertContainsCompat($needle, $haystack, string $message = '', bool $strict = true): void
     {
         if (Version::series() >= 8.0) {
             $strict ? parent::assertContains($needle, $haystack, $message) :
                 parent::assertContainsEquals($needle, $haystack, $message);
         } else {
             parent::assertContains($needle, $haystack, $message, false, $strict);
+        }
+    }
+
+    public static function assertNotContainsCompat($needle, $haystack, string $message = '', bool $strict = true): void
+    {
+        if (Version::series() >= 8.0) {
+            $strict ? parent::assertNotContains($needle, $haystack, $message) :
+                parent::assertNotContainsEquals($needle, $haystack, $message);
+        } else {
+            parent::assertNotContains($needle, $haystack, $message, false, $strict);
         }
     }
 }

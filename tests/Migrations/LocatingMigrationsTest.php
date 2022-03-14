@@ -27,7 +27,7 @@ class LocatingMigrationsTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertContains(Migration::createInstance([
+        self::assertContainsCompat(Migration::createInstance([
             'file' => 'CreateAnimalsTable.php',
             'status' => 'new',
         ]), $status->migrations, '', false);
@@ -40,7 +40,7 @@ class LocatingMigrationsTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertContains(Migration::createInstance([
+        self::assertContainsCompat(Migration::createInstance([
             'file' => 'Grouped/2018-11-22T22-59-59Z_FooBar.php',
             'status' => 'new',
         ]), $status->migrations, '', false);
@@ -53,7 +53,7 @@ class LocatingMigrationsTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertNotContains((object)[
+        self::assertNotContainsCompat((object)[
             'file' => 'EmptyFile.php',
             'status' => 'new',
         ], $status->migrations, '', false, false);
@@ -66,7 +66,7 @@ class LocatingMigrationsTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertNotContains((object)[
+        self::assertNotContainsCompat((object)[
             'file' => 'NoMigration.php',
             'status' => 'new',
         ], $status->migrations, '', false, false);
