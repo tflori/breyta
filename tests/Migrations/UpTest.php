@@ -123,7 +123,11 @@ class UpTest extends TestCase
             });
 
         self::expectException(\Error::class);
-        self::expectExceptionMessageRegExp(
+        $method = method_exists(static::class, 'expectExceptionMessageMatches') ?
+            [static::class, 'expectExceptionMessageMatches'] :
+            [static::class, 'expectExceptionMessageRegExp'];
+        call_user_func(
+            $method,
             '/Argument .* must be (an instance of|of type) Breyta\\\\Model\\\\Statement, string given/'
         );
 
