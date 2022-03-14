@@ -365,27 +365,25 @@ class Migrations
 
     protected function loadMigrations()
     {
-        if (!$this->migrations) {
-            $migrations = $this->findMigrations();
-
-            // get the status of migrations from database
-            try {
-                $statement = $this->db->query('SELECT * FROM migrations');
-                if ($statement) {
-                    $statement->setFetchMode(\PDO::FETCH_CLASS, Model\Migration::class);
-                    while ($migration = $statement->fetch()) {
-                        if (!isset($migrations[$migration->file])) {
-                            $this->missingMigrations[] = $migration;
-                            continue;
-                        }
-                        $migrations[$migration->file] = $migration;
-                    }
-                }
-            } catch (\PDOException $exception) {
-                // the table does not exist - so nothing to do here
-            }
-            $this->migrations = array_values($migrations);
+        if ($this->migrations) {
+            return;
         }
+        $migrations = $this->findMigrations();
+
+        // get the status of migrations from database
+        try {
+            $statement = $this->db->query('SELECT * FROM migrations');
+            $statement->setFetchMode(\PDO::FETCH_CLASS, Model\Migration::class);
+            while ($migration = $statement->fetch()) {
+                isset($migrations[$migration->file]) ?
+                    $migrations[$migration->file] = $migration :
+                    $this->missingMigrations[] = $migration;
+            }
+        } catch (\PDOException $exception) {
+            // the table does not exist - so nothing to do here
+        }
+
+        $this->migrations = array_values($migrations);
     }
 
     protected function findMigrations(): array
