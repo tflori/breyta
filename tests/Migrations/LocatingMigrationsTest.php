@@ -30,7 +30,7 @@ class LocatingMigrationsTest extends TestCase
         self::assertContains(Migration::createInstance([
             'file' => 'CreateAnimalsTable.php',
             'status' => 'new',
-        ]), $status->migrations, '', false, false);
+        ]), $status->migrations, '', false);
     }
 
     /** @test */
@@ -43,7 +43,7 @@ class LocatingMigrationsTest extends TestCase
         self::assertContains(Migration::createInstance([
             'file' => 'Grouped/2018-11-22T22-59-59Z_FooBar.php',
             'status' => 'new',
-        ]), $status->migrations, '', false, false);
+        ]), $status->migrations, '', false);
     }
 
     /** @test */

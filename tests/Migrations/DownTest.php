@@ -48,7 +48,7 @@ class DownTest extends TestCase
                 self::assertSame(date('Y-m-d H:i:s'), array_shift($values));
                 self::assertSame('reverted', array_shift($values));
                 self::assertSame('[]', array_shift($values));
-                self::assertInternalType('double', array_shift($values));
+                self::assertIsFloat(array_shift($values));
                 self::assertSame('@breyta/CreateMigrationTable.php', array_shift($values));
                 return true;
             })->once()->andReturn(1)->ordered();

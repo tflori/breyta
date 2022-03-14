@@ -12,7 +12,7 @@ class CreateMigrationTest extends TestCase
 
     protected $path = '/tmp/breyta-test';
 
-    protected function setUp()
+    protected function setUp(): void
     {
         if (file_exists($this->path)) {
             exec('rm -Rf ' . $this->path);
@@ -34,7 +34,7 @@ class CreateMigrationTest extends TestCase
     {
         $this->migrations->createMigration('JustAName');
 
-        self::assertContains('JustAName', $this->getCreatedFileName());
+        self::assertStringContainsString('JustAName', $this->getCreatedFileName());
     }
 
     /** @test */
@@ -63,7 +63,7 @@ class CreateMigrationTest extends TestCase
 
         $status = $this->migrations->getStatus();
 
-        self::assertContains('// ' . $status->migrations[1]->file, file_get_contents($this->getCreatedFileName()));
+        self::assertStringContainsString('// ' . $status->migrations[1]->file, file_get_contents($this->getCreatedFileName()));
     }
 
     protected function getCreatedFileName()

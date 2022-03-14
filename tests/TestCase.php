@@ -11,6 +11,7 @@ use Breyta\Model\Migration;
 use Breyta\Model\Statement;
 use Mockery\Adapter\Phpunit\MockeryTestCase;
 use Mockery as m;
+use PHPUnit\Runner\Version;
 
 abstract class TestCase extends MockeryTestCase
 {
@@ -29,7 +30,7 @@ abstract class TestCase extends MockeryTestCase
     /** @var callable */
     protected $executor;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         date_default_timezone_set('UTC');
 
@@ -143,5 +144,15 @@ abstract class TestCase extends MockeryTestCase
         $this->mockPreparedStatement('/^update migrations set/i', true, 0);
 
         return $pdo;
+    }
+
+    public static function assertContains($needle, $haystack, string $message = '', bool $strict = true): void
+    {
+        if (Version::series() >= 8.0) {
+            $strict ? parent::assertContains($needle, $haystack, $message) :
+                parent::assertContainsEquals($needle, $haystack, $message);
+        } else {
+            parent::assertContains($needle, $haystack, $message, false, $strict);
+        }
     }
 }

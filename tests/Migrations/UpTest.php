@@ -47,7 +47,7 @@ class UpTest extends TestCase
                 self::assertSame(date('Y-m-d H:i:s'), array_shift($values));
                 self::assertSame('done', array_shift($values));
                 self::assertSame('[]', array_shift($values));
-                self::assertInternalType('double', array_shift($values));
+                self::assertIsFloat(array_shift($values));
                 return true;
             })->once()->andReturn(1)->ordered();
 
@@ -69,7 +69,7 @@ class UpTest extends TestCase
                 self::assertSame(null, array_shift($values));
                 self::assertSame('done', array_shift($values));
                 self::assertSame('[]', array_shift($values));
-                self::assertInternalType('double', array_shift($values));
+                self::assertIsFloat(array_shift($values));
                 self::assertSame('@breyta/CreateMigrationTable.php', array_shift($values));
                 return true;
             })->once()->andReturn(1)->ordered();
@@ -104,7 +104,7 @@ class UpTest extends TestCase
                 self::assertSame(date('Y-m-d H:i:s'), array_shift($values));
                 self::assertSame('failed', array_shift($values));
                 self::assertSame('[]', array_shift($values));
-                self::assertInternalType('double', array_shift($values));
+                self::assertIsFloat(array_shift($values));
                 return true;
             })->once()->andReturn(1)->ordered();
 
@@ -123,7 +123,9 @@ class UpTest extends TestCase
             });
 
         self::expectException(\Error::class);
-        self::expectExceptionMessage(' must be an instance of Breyta\Model\Statement, string given');
+        self::expectExceptionMessageRegExp(
+            '/Argument .* must be (an instance of|of type) Breyta\\\\Model\\\\Statement, string given/'
+        );
 
         $this->migrations->up($migration->model);
     }
@@ -154,7 +156,7 @@ class UpTest extends TestCase
 
         $this->mockExecuteStatement($statement);
 
-        self::assertInternalType('double', $statement->executionTime);
+        self::assertIsFloat($statement->executionTime);
     }
 
     /** @test */
@@ -169,7 +171,7 @@ class UpTest extends TestCase
             $this->fail('Expected PDOException');
         } catch (\PDOException $exception) {
             self::assertSame($exception, $statement->exception);
-            self::assertInternalType('double', $statement->executionTime);
+            self::assertIsFloat($statement->executionTime);
         }
     }
 
