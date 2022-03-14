@@ -172,24 +172,7 @@ class Migrations
         ]);
 
         foreach ($migrations as $migration) {
-            $this->progress->beforeMigration($migration);
-            $this->statements = [];
-            $start = microtime(true);
-            try {
-                $this->db->beginTransaction();
-                $class = self::internalClass($migration->file) ??
-                         FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
-                /** @var AbstractMigration $migrationInstance */
-                $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
-                $migrationInstance->up();
-                $this->saveMigration($migration, 'done', microtime(true) - $start);
-                $this->db->commit();
-            } catch (\PDOException $exception) {
-                $this->db->rollBack();
-                $this->saveMigration($migration, 'failed', microtime(true) - $start);
-                throw $exception;
-            }
-            $this->progress->afterMigration($migration);
+            $this->executeMigration('up', $migration);
         }
 
         $this->progress->finish((object)[
@@ -281,23 +264,7 @@ class Migrations
         ]);
 
         foreach ($migrations as $migration) {
-            $this->progress->beforeMigration($migration);
-            $this->statements = $migration->statements;
-            $start = microtime(true) - $migration->execution_time;
-            try {
-                $this->db->beginTransaction();
-                $class = self::internalClass($migration->file) ??
-                         FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
-                /** @var AbstractMigration $migrationInstance */
-                $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
-                $migrationInstance->down();
-                $this->saveMigration($migration, 'reverted', microtime(true) - $start);
-                $this->db->commit();
-            } catch (\PDOException $exception) {
-                $this->db->rollBack();
-                throw $exception;
-            }
-            $this->progress->afterMigration($migration);
+            $this->executeMigration('down', $migration);
         }
 
         $this->progress->finish((object)[
@@ -356,6 +323,32 @@ class Migrations
     public function setProgress(ProgressInterface $progress)
     {
         $this->progress = $progress;
+    }
+
+    protected function executeMigration($direction, Model\Migration $migration)
+    {
+        $this->progress->beforeMigration($migration);
+        $this->statements = $direction === 'down' ? $migration->statements : [];
+        $start = microtime(true) - $migration->execution_time;
+        try {
+            $this->db->beginTransaction();
+            $class = self::internalClass($migration->file) ??
+                FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
+            /** @var AbstractMigration $migrationInstance */
+            $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
+            call_user_func([$migrationInstance, $direction]);
+            $this->saveMigration(
+                $migration,
+                $direction === 'down' ? 'reverted' : 'done',
+                microtime(true) - $start
+            );
+            $this->db->commit();
+        } catch (\PDOException $exception) {
+            $this->db->rollBack();
+            $direction === 'up' && $this->saveMigration($migration, 'failed', microtime(true) - $start);
+            throw $exception;
+        }
+        $this->progress->afterMigration($migration);
     }
 
     protected function saveMigration(Model\Migration $migration, $status, $executionTime)
