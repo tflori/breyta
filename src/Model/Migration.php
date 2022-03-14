@@ -25,10 +25,14 @@ class Migration
     /** @var double */
     public $execution_time;
 
+    /** @var bool */
+    protected $exists = false;
+
     public function __construct()
     {
         if (!empty($this->executed) && is_string($this->executed)) {
             $this->executed = new \DateTime($this->executed, new \DateTimeZone('UTC'));
+            $this->exists = true;
         }
 
         if (!empty($this->reverted) && is_string($this->reverted)) {
@@ -51,5 +55,33 @@ class Migration
 
         $new->__construct();
         return $new;
+    }
+
+    public function save(\PDO $db, string $table)
+    {
+        if (!$this->exists) {
+            $db->prepare("INSERT INTO {$table}
+                (file, executed, status, statements, execution_time) VALUES
+                (?, ?, ?, ?, ?)
+            ")->execute([
+                $this->file,
+                $this->executed->format('Y-m-d H:i:s'),
+                $this->status,
+                json_encode($this->statements),
+                $this->execution_time
+            ]);
+        } else {
+            $db->prepare("UPDATE {$table} SET
+                executed = ?, reverted = ?, status = ?, statements = ?, execution_time = ?
+                WHERE file = ?
+            ")->execute([
+                $this->executed->format('Y-m-d H:i:s'),
+                $this->reverted ? $this->reverted->format('Y-m-d H:i:s') : null,
+                $this->status,
+                json_encode($this->statements),
+                $this->execution_time,
+                $this->file
+            ]);
+        }
     }
 }

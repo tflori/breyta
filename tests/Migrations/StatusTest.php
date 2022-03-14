@@ -15,7 +15,7 @@ class StatusTest extends TestCase
         $migrations = new Migrations($this->pdo, __DIR__ . '/../Example');
 
         $this->pdo->shouldReceive('query')->with(m::pattern('/SELECT .* FROM migrations/'))
-            ->once()->andReturn(false);
+            ->once()->andThrow(\PDOException::class);
 
         $migrations->getStatus();
     }

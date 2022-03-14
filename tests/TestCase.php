@@ -138,7 +138,7 @@ abstract class TestCase extends MockeryTestCase
         $pdo->shouldReceive('beginTransaction')->byDefault();
         $pdo->shouldReceive('commit')->byDefault();
         $pdo->shouldReceive('rollback')->byDefault();
-        $pdo->shouldReceive('query')->andReturn(false)->byDefault();
+        $pdo->shouldReceive('query')->andThrow(\PDOException::class)->byDefault();
         $this->mockPreparedStatement('/^insert into migrations/i', true);
         $this->mockPreparedStatement('/^update migrations set/i', true, 0);
 

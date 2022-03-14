@@ -172,24 +172,7 @@ class Migrations
         ]);
 
         foreach ($migrations as $migration) {
-            $this->progress->beforeMigration($migration);
-            $this->statements = [];
-            $start = microtime(true);
-            try {
-                $this->db->beginTransaction();
-                $class = self::internalClass($migration->file) ??
-                         FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
-                /** @var AbstractMigration $migrationInstance */
-                $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
-                $migrationInstance->up();
-                $this->saveMigration($migration, 'done', microtime(true) - $start);
-                $this->db->commit();
-            } catch (\PDOException $exception) {
-                $this->db->rollBack();
-                $this->saveMigration($migration, 'failed', microtime(true) - $start);
-                throw $exception;
-            }
-            $this->progress->afterMigration($migration);
+            $this->executeMigration('up', $migration);
         }
 
         $this->progress->finish((object)[
@@ -281,23 +264,7 @@ class Migrations
         ]);
 
         foreach ($migrations as $migration) {
-            $this->progress->beforeMigration($migration);
-            $this->statements = $migration->statements;
-            $start = microtime(true) - $migration->execution_time;
-            try {
-                $this->db->beginTransaction();
-                $class = self::internalClass($migration->file) ??
-                         FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
-                /** @var AbstractMigration $migrationInstance */
-                $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
-                $migrationInstance->down();
-                $this->saveMigration($migration, 'reverted', microtime(true) - $start);
-                $this->db->commit();
-            } catch (\PDOException $exception) {
-                $this->db->rollBack();
-                throw $exception;
-            }
-            $this->progress->afterMigration($migration);
+            $this->executeMigration('down', $migration);
         }
 
         $this->progress->finish((object)[
@@ -358,10 +325,34 @@ class Migrations
         $this->progress = $progress;
     }
 
+    protected function executeMigration($direction, Model\Migration $migration)
+    {
+        $this->progress->beforeMigration($migration);
+        $this->statements = $direction === 'down' ? $migration->statements : [];
+        $start = microtime(true) - $migration->execution_time;
+        try {
+            $this->db->beginTransaction();
+            $class = self::internalClass($migration->file) ??
+                FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
+            /** @var AbstractMigration $migrationInstance */
+            $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
+            call_user_func([$migrationInstance, $direction]);
+            $this->saveMigration(
+                $migration,
+                $direction === 'down' ? 'reverted' : 'done',
+                microtime(true) - $start
+            );
+            $this->db->commit();
+        } catch (\PDOException $exception) {
+            $this->db->rollBack();
+            $direction === 'up' && $this->saveMigration($migration, 'failed', microtime(true) - $start);
+            throw $exception;
+        }
+        $this->progress->afterMigration($migration);
+    }
+
     protected function saveMigration(Model\Migration $migration, $status, $executionTime)
     {
-        $exists = (bool)$migration->executed;
-        $table = self::$table;
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
         $status === 'reverted' ? $migration->reverted = $now : $migration->executed = $now;
 
@@ -369,55 +360,30 @@ class Migrations
         $migration->status = $status;
         $migration->execution_time = $executionTime;
 
-        if (!$exists) {
-            $this->db->prepare("INSERT INTO {$table}
-                (file, executed, status, statements, execution_time) VALUES
-                (?, ?, ?, ?, ?)
-            ")->execute([
-                $migration->file,
-                $migration->executed->format('Y-m-d H:i:s'),
-                $migration->status,
-                json_encode($migration->statements),
-                $migration->execution_time
-            ]);
-        } else {
-            $this->db->prepare("UPDATE {$table} SET
-                executed = ?, reverted = ?, status = ?, statements = ?, execution_time = ?
-                WHERE file = ?
-            ")->execute([
-                $migration->executed->format('Y-m-d H:i:s'),
-                $migration->reverted ? $migration->reverted->format('Y-m-d H:i:s') : null,
-                $migration->status,
-                json_encode($migration->statements),
-                $migration->execution_time,
-                $migration->file
-            ]);
-        }
+        $migration->save($this->db, self::$table);
     }
 
     protected function loadMigrations()
     {
-        if (!$this->migrations) {
-            $migrations = $this->findMigrations();
-
-            // get the status of migrations from database
-            try {
-                $statement = $this->db->query('SELECT * FROM migrations');
-                if ($statement) {
-                    $statement->setFetchMode(\PDO::FETCH_CLASS, Model\Migration::class);
-                    while ($migration = $statement->fetch()) {
-                        if (!isset($migrations[$migration->file])) {
-                            $this->missingMigrations[] = $migration;
-                            continue;
-                        }
-                        $migrations[$migration->file] = $migration;
-                    }
-                }
-            } catch (\PDOException $exception) {
-                // the table does not exist - so nothing to do here
-            }
-            $this->migrations = array_values($migrations);
+        if ($this->migrations) {
+            return;
         }
+        $migrations = $this->findMigrations();
+
+        // get the status of migrations from database
+        try {
+            $statement = $this->db->query('SELECT * FROM migrations');
+            $statement->setFetchMode(\PDO::FETCH_CLASS, Model\Migration::class);
+            while ($migration = $statement->fetch()) {
+                isset($migrations[$migration->file]) ?
+                    $migrations[$migration->file] = $migration :
+                    $this->missingMigrations[] = $migration;
+            }
+        } catch (\PDOException $exception) {
+            // the table does not exist - so nothing to do here
+        }
+
+        $this->migrations = array_values($migrations);
     }
 
     protected function findMigrations(): array
@@ -427,65 +393,53 @@ class Migrations
             'status' => 'new',
         ])];
 
-        /** @var \SplFileInfo $fileInfo */
-        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->path)) as $fileInfo) {
-            if (is_dir($fileInfo->getPathname()) ||
-                $fileInfo->getFilename()[0] === '.' ||
-                substr($fileInfo->getFilename(), -4) !== '.php'
-            ) {
-                continue;
-            }
+        $classes = FileHelper::findClasses($this->path);
+        $migrationClasses = array_filter($classes, function ($className, $file) {
+            require_once $this->path . '/' . $file;
+            return is_subclass_of($className, AbstractMigration::class);
+        }, ARRAY_FILTER_USE_BOTH);
 
-            $className = FileHelper::getClassFromFile($fileInfo->getPathname());
-            if (!$className) {
-                continue;
-            }
-
-            require_once $fileInfo->getPathname();
-            if (!is_subclass_of($className, AbstractMigration::class)) {
-                continue;
-            }
-
-            $file = substr($fileInfo->getPathname(), strlen($this->path) + 1);
-            $migrations[] = Model\Migration::createInstance([
+        $migrations = array_merge($migrations, array_map(function (string $file) {
+            return Model\Migration::createInstance([
                 'file' => $file,
                 'status' => 'new'
             ]);
-        }
+        }, array_keys($migrationClasses)));
 
-        usort($migrations, function ($left, $right) {
-            // sort criteria 1: is from breyta
-            $leftIsFromBreyta = substr($left->file, 0, 8) === '@breyta/';
-            $rightIsFromBreyta = substr($right->file, 0, 8) === '@breyta/';
-            if ($leftIsFromBreyta !== $rightIsFromBreyta) {
-                return $rightIsFromBreyta - $leftIsFromBreyta;
-            }
-
-            $leftBaseName = basename($left->file);
-            $rightBaseName = basename($right->file);
-
-            // sort criteria 2: has creation date
-            $leftTime = FileHelper::getTimeFromFileName($left->file);
-            $rightTime = FileHelper::getTimeFromFileName($right->file);
-            if (is_null($leftTime) !== is_null($rightTime)) {
-                return is_null($rightTime) - is_null($leftTime);
-            }
-
-            // sort criteria 3: by creation date
-            if ($leftTime !== $rightTime) {
-                return $leftTime - $rightTime;
-            }
-
-            // sort criteria 4: alphabetically
-            return strcmp($leftBaseName, $rightBaseName);
-        });
+        usort($migrations, [static::class, 'sortMigrations']);
 
         // key by identifier...
-        $migrations = array_combine(array_map(function ($migration) {
+        return array_combine(array_map(function ($migration) {
             return $migration->file;
         }, $migrations), $migrations);
+    }
 
-        return $migrations;
+    protected static function sortMigrations($left, $right)
+    {
+        // sort criteria 1: is from breyta
+        $leftIsFromBreyta = substr($left->file, 0, 8) === self::INTERNAL_PREFIX;
+        $rightIsFromBreyta = substr($right->file, 0, 8) === self::INTERNAL_PREFIX;
+        if ($leftIsFromBreyta !== $rightIsFromBreyta) {
+            return $rightIsFromBreyta - $leftIsFromBreyta;
+        }
+
+        $leftBaseName = basename($left->file);
+        $rightBaseName = basename($right->file);
+
+        // sort criteria 2: has creation date
+        $leftTime = FileHelper::getTimeFromFileName($left->file);
+        $rightTime = FileHelper::getTimeFromFileName($right->file);
+        if (is_null($leftTime) !== is_null($rightTime)) {
+            return is_null($rightTime) - is_null($leftTime);
+        }
+
+        // sort criteria 3: by creation date
+        if ($leftTime !== $rightTime) {
+            return $leftTime - $rightTime;
+        }
+
+        // sort criteria 4: alphabetically
+        return strcmp($leftBaseName, $rightBaseName);
     }
 
     protected function executeStatement(Model\Statement $statement)
