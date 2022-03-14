@@ -36,7 +36,7 @@ class FileHelper
      * @param string $path
      * @return array
      */
-    public static function findMigrationFiles(string $path): array
+    public static function findClasses(string $path): array
     {
         $result = [];
 
@@ -50,17 +50,8 @@ class FileHelper
             }
 
             $className = self::getClassFromFile($fileInfo->getPathname());
-            if (!$className) {
-                continue;
-            }
-
-            require_once $fileInfo->getPathname();
-            if (!is_subclass_of($className, AbstractMigration::class)) {
-                continue;
-            }
-
             $file = substr($fileInfo->getPathname(), strlen($path) + 1);
-            $result[] = $file;
+            $className && $result[$file] = $className;
         }
 
         return $result;
