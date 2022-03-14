@@ -2,7 +2,8 @@
 
 namespace Breyta;
 
-use Breyta\Migration\CreateMigrationTable;
+use Breyta\Concerns\ExecutesMigrations;
+use Breyta\Concerns\SearchesForMigrations;
 use Breyta\Model;
 
 /**
@@ -15,6 +16,9 @@ use Breyta\Model;
  */
 class Migrations
 {
+    use SearchesForMigrations;
+    use ExecutesMigrations;
+
     const INTERNAL_PREFIX = '@breyta/';
 
     /** The name of the migration table
@@ -325,44 +329,6 @@ class Migrations
         $this->progress = $progress;
     }
 
-    protected function executeMigration($direction, Model\Migration $migration)
-    {
-        $this->progress->beforeMigration($migration);
-        $this->statements = $direction === 'down' ? $migration->statements : [];
-        $start = microtime(true) - $migration->execution_time;
-        try {
-            $this->db->beginTransaction();
-            $class = self::internalClass($migration->file) ??
-                FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
-            /** @var AbstractMigration $migrationInstance */
-            $migrationInstance = call_user_func($this->resolver, $class, $this->getAdapter());
-            call_user_func([$migrationInstance, $direction]);
-            $this->saveMigration(
-                $migration,
-                $direction === 'down' ? 'reverted' : 'done',
-                microtime(true) - $start
-            );
-            $this->db->commit();
-        } catch (\PDOException $exception) {
-            $this->db->rollBack();
-            $direction === 'up' && $this->saveMigration($migration, 'failed', microtime(true) - $start);
-            throw $exception;
-        }
-        $this->progress->afterMigration($migration);
-    }
-
-    protected function saveMigration(Model\Migration $migration, $status, $executionTime)
-    {
-        $now = new \DateTime('now', new \DateTimeZone('UTC'));
-        $status === 'reverted' ? $migration->reverted = $now : $migration->executed = $now;
-
-        $migration->statements = $this->statements;
-        $migration->status = $status;
-        $migration->execution_time = $executionTime;
-
-        $migration->save($this->db, self::$table);
-    }
-
     protected function loadMigrations()
     {
         if ($this->migrations) {
@@ -384,94 +350,6 @@ class Migrations
         }
 
         $this->migrations = array_values($migrations);
-    }
-
-    protected function findMigrations(): array
-    {
-        $migrations = [Model\Migration::createInstance([
-            'file' => self::INTERNAL_PREFIX . 'CreateMigrationTable.php',
-            'status' => 'new',
-        ])];
-
-        $classes = FileHelper::findClasses($this->path);
-        $migrationClasses = array_filter($classes, function ($className, $file) {
-            require_once $this->path . '/' . $file;
-            return is_subclass_of($className, AbstractMigration::class);
-        }, ARRAY_FILTER_USE_BOTH);
-
-        $migrations = array_merge($migrations, array_map(function (string $file) {
-            return Model\Migration::createInstance([
-                'file' => $file,
-                'status' => 'new'
-            ]);
-        }, array_keys($migrationClasses)));
-
-        usort($migrations, [static::class, 'sortMigrations']);
-
-        // key by identifier...
-        return array_combine(array_map(function ($migration) {
-            return $migration->file;
-        }, $migrations), $migrations);
-    }
-
-    protected static function sortMigrations($left, $right)
-    {
-        // sort criteria 1: is from breyta
-        $leftIsFromBreyta = substr($left->file, 0, 8) === self::INTERNAL_PREFIX;
-        $rightIsFromBreyta = substr($right->file, 0, 8) === self::INTERNAL_PREFIX;
-        if ($leftIsFromBreyta !== $rightIsFromBreyta) {
-            return $rightIsFromBreyta - $leftIsFromBreyta;
-        }
-
-        $leftBaseName = basename($left->file);
-        $rightBaseName = basename($right->file);
-
-        // sort criteria 2: has creation date
-        $leftTime = FileHelper::getTimeFromFileName($left->file);
-        $rightTime = FileHelper::getTimeFromFileName($right->file);
-        if (is_null($leftTime) !== is_null($rightTime)) {
-            return is_null($rightTime) - is_null($leftTime);
-        }
-
-        // sort criteria 3: by creation date
-        if ($leftTime !== $rightTime) {
-            return $leftTime - $rightTime;
-        }
-
-        // sort criteria 4: alphabetically
-        return strcmp($leftBaseName, $rightBaseName);
-    }
-
-    protected function executeStatement(Model\Statement $statement)
-    {
-        $this->progress->beforeExecution($statement);
-        $start = microtime(true);
-        try {
-            $statement->result = $this->db->exec($statement->raw);
-            $statement->exception = null;
-        } catch (\PDOException $exception) {
-            $statement->exception = $exception;
-            throw $exception;
-        } finally {
-            $statement->executionTime = microtime(true) - $start;
-            $this->progress->afterExecution($statement);
-        }
-    }
-
-    protected function getAdapter(): AdapterInterface
-    {
-        if (!$this->adapter) {
-            $this->adapter = call_user_func(
-                $this->resolver,
-                AdapterInterface::class,
-                function (Model\Statement $statement) {
-                     $this->statements[] = $statement;
-                    $this->executeStatement($statement);
-                }
-            );
-        }
-
-        return $this->adapter;
     }
 
     protected static function internalClass(string $file): ?string
