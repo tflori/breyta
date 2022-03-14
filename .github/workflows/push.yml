@@ -77,5 +77,5 @@ jobs:
         run: |
           wget https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 -qO ./cc-test-reporter
           chmod +x ./cc-test-reporter
-          ./cc-test-reporter sum-coverage coverage/cc-*.json -p 4 -o coverage/cc-total.json
+          ./cc-test-reporter sum-coverage coverage/cc-*.json -p 5 -o coverage/cc-total.json
           ./cc-test-reporter upload-coverage -i coverage/cc-total.json
