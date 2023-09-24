@@ -37,7 +37,7 @@ class BasicAdapterTest extends TestCase
         $statement = $adapter->getStatement($statement);
 
         foreach ($expected as $key => $value) {
-            self::assertObjectHasProperty($key, $statement);
+            self::assertObjectHasAttribute($key, $statement);
             self::assertSame($value, $statement->$key);
         }
     }
