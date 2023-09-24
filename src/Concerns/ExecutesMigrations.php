@@ -18,6 +18,9 @@ trait ExecutesMigrations
         $this->statements = $direction === 'down' ? $migration->statements : [];
         $start = microtime(true) - $migration->execution_time;
         try {
+            // data definition language can usually not run in transactions
+            // some database management systems even end transactions when a DDL is executed
+            // @todo remove transaction as we can not be sure to run in a transaction
             $this->db->beginTransaction();
             $class = self::internalClass($migration->file) ??
                 FileHelper::getClassFromFile($this->path . DIRECTORY_SEPARATOR . $migration->file);
@@ -29,9 +32,9 @@ trait ExecutesMigrations
                 $direction === 'down' ? 'reverted' : 'done',
                 microtime(true) - $start
             );
-            $this->db->commit();
+            $this->db->inTransaction() && $this->db->commit();
         } catch (\PDOException $exception) {
-            $this->db->rollBack();
+            $this->db->inTransaction() && $this->db->rollBack();
             $direction === 'up' && $this->saveMigration($migration, 'failed', microtime(true) - $start);
             throw $exception;
         }
