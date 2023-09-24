@@ -96,8 +96,8 @@ class StatusTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertObjectHasAttribute('migrations', $status);
-        self::assertObjectHasAttribute('count', $status);
+        self::assertObjectHasProperty('migrations', $status);
+        self::assertObjectHasProperty('count', $status);
     }
 
     /** @test */
@@ -122,7 +122,7 @@ class StatusTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertObjectHasAttribute('missing', $status);
+        self::assertObjectHasProperty('missing', $status);
         self::assertSame(1, count($status->missing));
         self::assertContainsCompat($migration, $status->missing);
     }

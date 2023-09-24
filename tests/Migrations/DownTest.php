@@ -64,7 +64,7 @@ class DownTest extends TestCase
         $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class, 'done');
 
         $migration->mock->shouldReceive('down')->with()->once()->andThrows(\PDOException::class)->ordered();
-        $this->pdo->shouldReceive('rollback')->once()->ordered();
+        $this->pdo->shouldReceive('rollback')->once()->ordered()->andReturn(true);
 
         self::expectException(\PDOException::class);
         $this->migrations->down($migration->model);

@@ -85,7 +85,7 @@ class UpTest extends TestCase
         $migration = $this->mockMigration('@breyta/CreateMigrationTable.php', CreateMigrationTable::class);
 
         $migration->mock->shouldReceive('up')->with()->once()->andThrows(\PDOException::class)->ordered();
-        $this->pdo->shouldReceive('rollback')->once()->ordered();
+        $this->pdo->shouldReceive('rollback')->once()->ordered()->andReturn(true);
 
         self::expectException(\PDOException::class);
         $this->migrations->up($migration->model);

@@ -16,8 +16,8 @@ class LocatingMigrationsTest extends TestCase
 
         $status = $migrations->getStatus();
 
-        self::assertObjectHasAttribute('migrations', $status);
-        self::assertObjectHasAttribute('count', $status);
+        self::assertObjectHasProperty('migrations', $status);
+        self::assertObjectHasProperty('count', $status);
     }
 
     /** @test */
