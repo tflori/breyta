@@ -53,7 +53,7 @@ class Migrations
     /** @var ProgressInterface */
     protected $progress;
 
-    public function __construct(\PDO $db, string $path, callable $resolver = null, ProgressInterface $progress = null)
+    public function __construct(\PDO $db, string $path, ?callable $resolver = null, ?ProgressInterface $progress = null)
     {
         if (!file_exists($path) || !is_dir($path)) {
             throw new \InvalidArgumentException('The path to migrations is not valid');
