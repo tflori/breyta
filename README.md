@@ -1,8 +1,8 @@
 # breyta
 
 [![.github/workflows/push.yml](https://github.com/tflori/breyta/actions/workflows/push.yml/badge.svg)](https://github.com/tflori/breyta/actions/workflows/push.yml)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/66a24538533791adfd5b/test_coverage)](https://codeclimate.com/github/tflori/breyta/test_coverage)
-[![Maintainability](https://api.codeclimate.com/v1/badges/66a24538533791adfd5b/maintainability)](https://codeclimate.com/github/tflori/breyta/maintainability)
+[![Code Coverage](https://qlty.sh/gh/tflori/projects/breyta/coverage.svg)](https://qlty.sh/gh/tflori/projects/breyta)
+[![Maintainability](https://qlty.sh/gh/tflori/projects/breyta/maintainability.svg)](https://qlty.sh/gh/tflori/projects/breyta)
 [![Latest Stable Version](https://poser.pugx.org/tflori/breyta/v/stable.svg)](https://packagist.org/packages/tflori/breyta) 
 [![Total Downloads](https://poser.pugx.org/tflori/breyta/downloads.svg)](https://packagist.org/packages/tflori/breyta) 
 [![License](https://poser.pugx.org/tflori/breyta/license.svg)](https://packagist.org/packages/tflori/breyta)
